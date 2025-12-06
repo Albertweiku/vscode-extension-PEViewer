@@ -1,0 +1,2349 @@
+// @ts-check
+
+// 此脚本在 webview 本身中运行
+(function () {
+	// @ts-ignore
+	const vscode = acquireVsCodeApi();
+
+	/** @type {HTMLElement | null} */
+	const peTree = document.getElementById('peTree');
+	/** @type {HTMLElement | null} */
+	const peDetails = document.getElementById('peDetails');
+	/** @type {HTMLElement | null} */
+	const detailsTitle = document.getElementById('detailsTitle');
+
+	// 模板缓存
+	const templates = {
+		importDllItem: /** @type {HTMLTemplateElement | null} */ (document.getElementById('tmpl-import-dll-item')),
+		resourceTypeItem: /** @type {HTMLTemplateElement | null} */ (document.getElementById('tmpl-resource-type-item')),
+		tableBasic: /** @type {HTMLTemplateElement | null} */ (document.getElementById('tmpl-table-basic')),
+		tableRow: /** @type {HTMLTemplateElement | null} */ (document.getElementById('tmpl-table-row')),
+		emptyMessage: /** @type {HTMLTemplateElement | null} */ (document.getElementById('tmpl-empty-message'))
+	};
+
+	/**
+	 * 创建表格行
+	 * @param {string[]} cells - 单元格内容
+	 * @param {string[]} [classes] - 每个单元格的CSS类名
+	 * @returns {HTMLTableRowElement}
+	 */
+	function createTableRow(cells, classes) {
+		const row = document.createElement('tr');
+		cells.forEach((content, index) => {
+			const cell = document.createElement('td');
+			cell.innerHTML = content;
+			if (classes && classes[index]) {
+				cell.className = classes[index];
+			}
+			row.appendChild(cell);
+		});
+		return row;
+	}
+
+	/**
+	 * 创建表格
+	 * @param {string} title - 表格标题
+	 * @param {string[]} headers - 表头
+	 * @param {Array<string[]>} rows - 表格行数据
+	 * @param {string[]} [cellClasses] - 单元格CSS类名
+	 * @returns {DocumentFragment}
+	 */
+	function createTable(title, headers, rows, cellClasses) {
+		if (!templates.tableBasic) {
+			return document.createDocumentFragment();
+		}
+		
+		const fragment = templates.tableBasic.content.cloneNode(true);
+		const section = /** @type {DocumentFragment} */ (fragment);
+		
+		// 设置标题
+		const titleElement = section.querySelector('.section-title');
+		if (titleElement) {
+			titleElement.textContent = title;
+		}
+		
+		// 创建表头
+		const thead = section.querySelector('.table-head');
+		if (thead) {
+			const headerRow = document.createElement('tr');
+			headers.forEach(header => {
+				const th = document.createElement('th');
+				th.textContent = header;
+				headerRow.appendChild(th);
+			});
+			thead.appendChild(headerRow);
+		}
+		
+		// 创建表体
+		const tbody = section.querySelector('.table-body');
+		if (tbody) {
+			rows.forEach(rowData => {
+				tbody.appendChild(createTableRow(rowData, cellClasses));
+			});
+		}
+		
+		return /** @type {DocumentFragment} */ (fragment);
+	}
+
+	/**
+	 * 显示空消息
+	 * @param {string} message
+	 */
+	function showEmptyMessage(message) {
+		if (!peDetails || !templates.emptyMessage) {
+			return;
+		}
+		
+		const fragment = templates.emptyMessage.content.cloneNode(true);
+		const msgElement = /** @type {DocumentFragment} */ (fragment).querySelector('.empty-message');
+		if (msgElement) {
+			msgElement.textContent = message;
+		}
+		
+		peDetails.innerHTML = '';
+		peDetails.appendChild(fragment);
+	}
+
+	/**
+	 * 格式化地址为十六进制字符串(自动补零)
+	 * @param {number | bigint} address - 地址值
+	 * @param {number} [minWidth=8] - 最小宽度(默认8位用于32位地址)
+	 * @returns {string} - 格式化后的地址字符串
+	 */
+	function formatAddress(address, minWidth = 8) {
+		// 将bigint转换为number
+		const addrNum = typeof address === 'bigint' ? Number(address) : address;
+		return '0x' + addrNum.toString(16).toUpperCase().padStart(minWidth, '0');
+	}
+
+    /**
+     * @typedef {Object} DosHeader
+     * @property {number} [e_magic]
+     * @property {number} [e_lfanew]
+     */
+
+    /**
+     * @typedef {Object} FileHeader
+     * @property {number} [Machine]
+     * @property {number} [NumberOfSections]
+     */
+
+    /**
+     * @typedef {Object} OptionalHeader
+     * @property {number} [Magic]
+     * @property {number} [AddressOfEntryPoint]
+     * @property {number|BigInt} [ImageBase]
+     */
+
+    /**
+     * @typedef {Object} NtHeaders
+     * @property {number} [Signature]
+     * @property {FileHeader} [FileHeader]
+     * @property {OptionalHeader} [OptionalHeader]
+     */
+
+    /**
+     * @typedef {Object} Section
+     * @property {string} [Name]
+     * @property {number} [VirtualSize]
+     * @property {number} [VirtualAddress]
+     * @property {number} [SizeOfRawData]
+     * @property {number} [PointerToRawData]
+     * @property {number} [Characteristics]
+     */
+
+    /**
+     * @typedef {Object} ImportFunction
+     * @property {string} [name]
+     * @property {number} [ordinal]
+     */
+
+    /**
+     * @typedef {Object} ImportDLL
+     * @property {string} name
+     * @property {ImportFunction[]} functions
+     */
+
+    /**
+     * @typedef {Object} ExportFunction
+     * @property {string} name
+     * @property {number} ordinal
+     * @property {number} address
+     */
+
+    /**
+     * @typedef {Object} ExportTable
+     * @property {string} name
+     * @property {number} base
+     * @property {number} numberOfFunctions
+     * @property {number} numberOfNames
+     * @property {number} addressOfFunctions
+     * @property {number} addressOfNames
+     * @property {number} addressOfNameOrdinals
+     * @property {ExportFunction[]} functions
+     */
+
+    /**
+     * @typedef {Object} ResourceEntry
+     * @property {number} type
+     * @property {number | string} id
+     * @property {string} [name]
+     * @property {Uint8Array} data
+     * @property {number} size
+     * @property {number} [codePage]
+     */
+
+    /**
+     * @typedef {Object.<number, ResourceEntry[]>} ResourceDirectory
+     */
+
+    /**
+     * @typedef {Object} ParsedData
+     * @property {DosHeader} [dos_header]
+     * @property {NtHeaders} [nt_headers]
+     * @property {Section[]} [sections]
+     * @property {ImportDLL[]} [imports]
+     * @property {ExportTable} [exports]
+     * @property {ResourceDirectory} [resources]
+     */
+
+    /** @type {ParsedData | null} */
+    let parsedData = null;
+
+	/** @type {string | null} */
+	let selectedItem = null;
+
+	// 处理来自扩展的消息
+	window.addEventListener('message', async e => {
+		const { type, body, requestId } = e.data;
+		switch (type) {
+			case 'init':
+				{
+					parsedData = body.value;
+					buildTree();
+					return;
+				}
+			case 'update':
+				{
+					parsedData = body.parsedData;
+					buildTree();
+					if (selectedItem) {
+						selectItem(selectedItem);
+					} else {
+						selectItem('pe_header');
+					}
+					return;
+				}
+			case 'getFileData':
+				{
+					// 目前不支持编辑，因此返回原始数据
+					vscode.postMessage({ type: 'response', requestId, body: Array.from(parsedData ? new Uint8Array(0) : new Uint8Array(0)) });
+					return;
+				}
+		}
+	});
+
+	function buildTree() {
+		if (!parsedData) {
+			return;
+		}
+
+	// 更新导出函数计数并控制显示/隐藏
+	const exportCount = document.getElementById('exportCount');
+	const exportsItem = document.querySelector('[data-item="exports"]');
+	if (exportCount) {
+		const count = parsedData.exports && parsedData.exports.functions ? parsedData.exports.functions.length : 0;
+		exportCount.textContent = `(${count})`;
+		if (exportsItem) {
+			const exportElement = /** @type {HTMLElement} */ (exportsItem);
+			if (count === 0) {
+				exportElement.style.display = 'none';
+			} else {
+				exportElement.style.display = '';
+			}
+		}
+	}	// 动态生成导入DLL列表
+	const importsList = document.getElementById('importsList');
+	const importCount = document.getElementById('importCount');
+	const importsGroup = importsList?.closest('details.pe-tree-group');
+	let totalImportFunctions = 0;
+	
+	if (importsList && parsedData.imports && parsedData.imports.length > 0 && templates.importDllItem) {
+		importsList.innerHTML = '';
+		parsedData.imports.forEach((/** @type {ImportDLL} */ dll, /** @type {number} */ index) => {
+			const funcCount = dll.functions ? dll.functions.length : 0;
+			totalImportFunctions += funcCount;
+			
+			// 使用模板创建元素
+			if (!templates.importDllItem) {
+				return;
+			}
+			const clone = /** @type {DocumentFragment} */ (templates.importDllItem.content.cloneNode(true));
+			const item = clone.querySelector('.pe-tree-item');
+			if (item) {
+				item.setAttribute('data-item', `imports.${index}`);
+				item.setAttribute('data-dll', dll.name);
+				const nameSpan = item.querySelector('.dll-name');
+				const countSpan = item.querySelector('.pe-tree-count');
+				if (nameSpan) {
+					nameSpan.textContent = dll.name;
+				}
+				if (countSpan) {
+					countSpan.textContent = `(${funcCount})`;
+				}
+			}
+			importsList.appendChild(clone);
+		});
+	}
+	
+	// 更新导入函数总数并控制显示/隐藏
+	if (importCount) {
+		importCount.textContent = `(${totalImportFunctions})`;
+	}
+	if (importsGroup) {
+		const importElement = /** @type {HTMLElement} */ (importsGroup);
+		if (totalImportFunctions === 0) {
+			importElement.style.display = 'none';
+		} else {
+			importElement.style.display = '';
+		}
+	}	// 动态生成区段列表
+	const sectionsList = document.querySelector('[data-item="sections"]')?.parentElement?.querySelector('.pe-tree-children');
+	if (sectionsList && parsedData.sections && parsedData.sections.length > 0) {
+		sectionsList.innerHTML = '';
+		parsedData.sections.forEach((section) => {
+			const sectionName = section.Name ? section.Name.replace(/\0/g, '').trim() : '';
+			if (sectionName) {
+				const sectionItem = document.createElement('div');
+				sectionItem.className = 'pe-tree-item pe-tree-leaf';
+				sectionItem.setAttribute('data-item', `section_${sectionName}`);
+				sectionItem.textContent = `📄 ${sectionName}`;
+				sectionsList.appendChild(sectionItem);
+			}
+		});
+	}
+
+	// 动态生成资源类型列表
+	const resourcesList = document.getElementById('resourcesList');
+	const resourceCount = document.getElementById('resourceCount');
+	let totalResources = 0; // 在外部声明以便后续访问
+	
+	if (resourcesList && templates.resourceTypeItem) {
+		resourcesList.innerHTML = '';
+		
+		// 检查是否有资源数据
+		if (parsedData.resources && Object.keys(parsedData.resources).length > 0) {
+				// 定义资源类型映射
+				/** @type {Record<number, {id: string, name: string, icon: string}>} */
+				const resourceTypeMap = {
+					1: { id: 'RT_CURSOR', name: '光标 (Cursor)', icon: '🖱️' },
+					2: { id: 'RT_BITMAP', name: '位图 (Bitmap)', icon: '🎨' },
+					3: { id: 'RT_ICON', name: '图标 (Icon)', icon: '🖼️' },
+					4: { id: 'RT_MENU', name: '菜单 (Menu)', icon: '📋' },
+					5: { id: 'RT_DIALOG', name: '对话框 (Dialog)', icon: '💬' },
+					6: { id: 'RT_STRING', name: '字符串表 (String Table)', icon: '📝' },
+					9: { id: 'RT_ACCELERATOR', name: '快捷键 (Accelerator)', icon: '⌨️' },
+					10: { id: 'RT_RCDATA', name: '原始数据 (RC Data)', icon: '📦' },
+						12: { id: 'RT_GROUP_CURSOR', name: '光标组 (Cursor Group)', icon: '🖱️' },
+					14: { id: 'RT_GROUP_ICON', name: '图标组 (Icon Group)', icon: '🖼️' },
+				16: { id: 'RT_VERSION', name: '版本信息 (Version)', icon: 'ℹ️' },
+				24: { id: 'RT_MANIFEST', name: '清单 (Manifest)', icon: '📄' }
+			};
+			
+			// 只添加实际存在的资源类型
+			/** @type {Record<number, {id: string, name: string, icon: string}>} */
+			const resourceTypeMapTyped = resourceTypeMap;
+			
+			if (!parsedData || !parsedData.resources) {
+				return;
+			}
+			Object.keys(parsedData.resources).sort((a, b) => Number(a) - Number(b)).forEach(typeNum => {
+				if (!parsedData || !parsedData.resources) {
+					return;
+				}
+				const typeId = Number(typeNum);
+				
+				// 跳过单独的图标类型(type=3),它们将作为图标组的子项显示
+				if (typeId === 3) {
+					return;
+				}
+				
+				const entries = parsedData.resources[typeId];
+				const count = entries ? entries.length : 0;
+				totalResources += count;
+				
+				const resType = resourceTypeMapTyped[typeId] || {
+					id: `RT_${typeId}`,
+					name: `资源类型 ${typeId}`,
+					icon: '📦'
+				};
+				
+				if (!templates.resourceTypeItem) {
+					return;
+				}
+				const clone = /** @type {DocumentFragment} */ (templates.resourceTypeItem.content.cloneNode(true));
+				const item = clone.querySelector('.pe-tree-item');
+				if (item) {
+					item.setAttribute('data-item', `resources.${typeId}`);
+					item.setAttribute('data-resource-type', String(typeId));
+					const nameSpan = item.querySelector('.resource-type-name');
+					const countSpan = item.querySelector('.pe-tree-count');
+					if (nameSpan) {
+						nameSpan.textContent = resType.name;
+					}
+					if (countSpan) {
+						countSpan.textContent = `(${count})`;
+					}						// 替换图标
+						const iconNode = item.firstChild;
+						if (iconNode && iconNode.nodeType === Node.TEXT_NODE) {
+							iconNode.textContent = resType.icon + ' ';
+						}
+					}
+					resourcesList.appendChild(clone);
+				});
+				
+				if (resourceCount) {
+					resourceCount.textContent = `(${totalResources})`;
+				}
+			} else {
+				if (resourceCount) {
+					resourceCount.textContent = '(0)';
+				}
+			}
+			
+			// 控制资源节点的显示/隐藏
+			const resourcesGroup = resourcesList?.closest('details.pe-tree-group');
+			if (resourcesGroup) {
+				const resourceElement = /** @type {HTMLElement} */ (resourcesGroup);
+				if (totalResources === 0) {
+					resourceElement.style.display = 'none';
+				} else {
+					resourceElement.style.display = '';
+				}
+			}
+		}
+
+	// 为所有树节点添加点击事件
+	document.querySelectorAll('.pe-tree-item').forEach(item => {
+		item.addEventListener('click', (e) => {
+			// 阻止事件冒泡，避免触发details的展开/收缩
+			e.stopPropagation();
+			const itemId = /** @type {string | null} */ (item.getAttribute('data-item'));
+			console.log('Tree item clicked, itemId:', itemId);
+			if (itemId) {
+				selectItem(itemId);
+			}
+		});
+	});		// 默认选中PE头部总览
+		selectItem('pe_header');
+	}
+
+	/**
+	 * @param {string} itemId
+	 */
+	function selectItem(itemId) {
+		selectedItem = itemId;
+
+		// 更新选中状态
+		document.querySelectorAll('.pe-tree-item').forEach(item => {
+			item.classList.remove('selected');
+		});
+		const selectedElement = document.querySelector(`[data-item="${itemId}"]`);
+		if (selectedElement) {
+			selectedElement.classList.add('selected');
+		}
+
+		// 显示详细信息
+		showDetails(itemId);
+	}
+
+	/**
+	 * @param {string} itemId
+	 */
+	function showDetails(itemId) {
+		if (!parsedData || !peDetails || !detailsTitle) {
+			if (peDetails) {
+				showEmptyMessage('未加载 PE 数据。');
+			}
+			return;
+		}
+
+		// 特殊处理
+		if (itemId === 'pe_header') {
+			showOverview();
+			return;
+		}
+
+		// 处理DOS头部
+		if (itemId === 'dos_header') {
+			showDosHeader();
+			return;
+		}
+
+		// 处理COFF头部
+		if (itemId === 'coff_header') {
+			showCoffHeader();
+			return;
+		}
+
+		// 处理可选头部
+		if (itemId === 'optional_header') {
+			showOptionalHeader();
+			return;
+		}
+
+		// 处理数据目录
+		if (itemId === 'data_directory') {
+			showDataDirectory();
+			return;
+		}
+
+		// 处理区段列表
+		if (itemId === 'sections') {
+			showAllSections();
+			return;
+		}
+
+		// 处理单个区段
+		if (itemId.startsWith('section_')) {
+			const sectionName = itemId.replace('section_', '');
+			showSection(sectionName);
+			return;
+		}
+
+		// 处理导出函数
+		if (itemId === 'exports') {
+			showExports();
+			return;
+		}
+
+		// 处理导入函数总览
+		if (itemId === 'imports') {
+			showImportsOverview();
+			return;
+		}
+
+	// 处理单个DLL的导入
+	if (itemId.startsWith('imports.')) {
+		const parts = itemId.split('.');
+		if (parts.length === 2) {
+			const dllIndex = parseInt(parts[1]);
+			if (!isNaN(dllIndex) && parsedData.imports && parsedData.imports[dllIndex]) {
+				showDllImports(parsedData.imports[dllIndex]);
+				return;
+			}
+		}
+	}		// 处理资源总览
+		if (itemId === 'resources') {
+			showResourcesOverview();
+			return;
+		}
+		
+		// 处理特定资源类型
+		if (itemId.startsWith('resources.')) {
+			const parts = itemId.split('.');
+			if (parts.length === 2) {
+				const resourceType = parts[1];
+				showResourceType(resourceType);
+				return;
+			}
+		}
+
+		// 默认显示
+		detailsTitle.textContent = '详细信息';
+		showEmptyMessage('请从左侧选择要查看的项目。');
+	}
+
+	function showOverview() {
+		if (!parsedData || !peDetails || !detailsTitle) {
+			return;
+		}
+
+		// 检测位数
+		let is64Bit = false;
+		let bitInfo = '32位';
+		if (parsedData.nt_headers && parsedData.nt_headers.OptionalHeader && parsedData.nt_headers.OptionalHeader.Magic) {
+			const magic = parsedData.nt_headers.OptionalHeader.Magic;
+			if (magic === 0x20B) {
+				is64Bit = true;
+				bitInfo = '64位';
+			}
+		}
+
+		detailsTitle.textContent = `PE 文件总览 (${bitInfo})`;
+		peDetails.innerHTML = '';
+		
+		const container = document.createElement('div');
+		container.className = 'pe-details-section';
+
+		// 添加位数突出显示
+		const archHeader = document.createElement('h4');
+		archHeader.innerHTML = `架构信息: <span style="color: ${is64Bit ? '#4CAF50' : '#2196F3'}; font-weight: bold;">${bitInfo} PE 文件</span>`;
+		container.appendChild(archHeader);
+
+		// DOS头信息
+		if (parsedData.dos_header) {
+			const dosRows = [
+				['魔数 (e_magic)', String(parsedData.dos_header.e_magic || 'N/A'), `0x${(parsedData.dos_header.e_magic || 0).toString(16).toUpperCase()}`, 'MZ 标识符'],
+				['NT头偏移 (e_lfanew)', String(parsedData.dos_header.e_lfanew || 'N/A'), `0x${(parsedData.dos_header.e_lfanew || 0).toString(16).toUpperCase()}`, 'NT 头位置']
+			];
+			container.appendChild(createTable('DOS 头信息', ['字段', '值', '十六进制', '描述'], dosRows, ['', 'pe-details-value', 'pe-details-hex', '']));
+		}
+
+		// NT头信息
+		if (parsedData.nt_headers) {
+			const ntRows = [];
+			ntRows.push(['签名', String(parsedData.nt_headers.Signature || 'N/A'), `0x${(parsedData.nt_headers.Signature || 0).toString(16).toUpperCase()}`, 'PE 标识符']);
+			
+			if (parsedData.nt_headers.FileHeader) {
+				ntRows.push(['机器类型', String(parsedData.nt_headers.FileHeader.Machine || 'N/A'), `0x${(parsedData.nt_headers.FileHeader.Machine || 0).toString(16).toUpperCase()}`, '目标 CPU']);
+				ntRows.push(['节数量', String(parsedData.nt_headers.FileHeader.NumberOfSections || 'N/A'), '', '节表中的节数']);
+			}
+
+		if (parsedData.nt_headers.OptionalHeader) {
+			ntRows.push(['入口点', String(parsedData.nt_headers.OptionalHeader.AddressOfEntryPoint || 'N/A'), formatAddress(parsedData.nt_headers.OptionalHeader.AddressOfEntryPoint || 0), '程序入口地址']);
+			ntRows.push(['映像基址', String(parsedData.nt_headers.OptionalHeader.ImageBase || 'N/A'), formatAddress(parsedData.nt_headers.OptionalHeader.ImageBase || 0), '映像加载基址']);
+		}			container.appendChild(createTable('NT 头信息', ['字段', '值', '十六进制', '描述'], ntRows, ['', 'pe-details-value', 'pe-details-hex', '']));
+		}
+
+		// 节信息
+		if (parsedData.sections && parsedData.sections.length > 0) {
+			const sectionRows = parsedData.sections.map((section, index) => {
+				const sectionName = section.Name ? section.Name.replace(/\0/g, '') : `Section ${index + 1}`;
+				return [
+					sectionName,
+					String(section.VirtualSize || 'N/A'),
+					formatAddress(section.VirtualAddress || 0),
+					String(section.SizeOfRawData || 'N/A'),
+					formatAddress(section.PointerToRawData || 0),
+					`0x${(section.Characteristics || 0).toString(16).toUpperCase()}`
+				];
+			});
+			container.appendChild(createTable('节信息', ['节名', '虚拟大小', '虚拟地址', '原始大小', '原始指针', '特性'], sectionRows, ['pe-details-value', 'pe-details-value', 'pe-details-hex', 'pe-details-value', 'pe-details-hex', 'pe-details-hex']));
+		}
+
+	// 导出函数统计
+	if (parsedData.exports && parsedData.exports.functions && parsedData.exports.functions.length > 0) {
+		const exportCount = parsedData.exports.functions.length;
+		const exportRows = [
+			['导出函数数量', String(exportCount), '', '点击左侧"导出函数"查看详细列表']
+		];
+		container.appendChild(createTable('导出函数统计', ['类型', '数量', '', '说明'], exportRows, ['', 'pe-details-value', '', '']));
+	}
+
+	// 导入函数统计
+	if (parsedData.imports && parsedData.imports.length > 0) {
+		let totalImportFunctions = 0;
+		const importDllRows = parsedData.imports.map((/** @type {ImportDLL} */ dll) => {
+			const funcCount = dll.functions ? dll.functions.length : 0;
+			totalImportFunctions += funcCount;
+			return [dll.name, String(funcCount)];
+		});
+		
+		// 添加总计行
+		importDllRows.push(['总计', String(totalImportFunctions)]);
+		
+		container.appendChild(createTable('导入函数统计', ['DLL 名称', '函数数量'], importDllRows, ['pe-details-value', 'pe-details-value']));
+		
+		const importNote = document.createElement('p');
+		importNote.style.marginTop = '5px';
+		importNote.style.fontSize = '12px';
+		importNote.style.color = 'var(--vscode-descriptionForeground)';
+		importNote.textContent = '提示: 点击左侧导航栏中的 DLL 名称可查看详细函数列表';
+		container.appendChild(importNote);
+	}		peDetails.appendChild(container);
+	}
+
+	function showDosHeader() {
+		if (!parsedData || !parsedData.dos_header || !peDetails || !detailsTitle) {
+			return;
+		}
+
+		detailsTitle.textContent = 'DOS 头部详细信息';
+		peDetails.innerHTML = '';
+		
+		const container = document.createElement('div');
+		container.className = 'pe-details-section';
+		
+		const header = document.createElement('h4');
+		header.textContent = 'DOS 头部 (IMAGE_DOS_HEADER)';
+		container.appendChild(header);
+		container.appendChild(generateValueDetails(parsedData.dos_header, 'dos_header'));
+		
+		peDetails.appendChild(container);
+	}
+
+	function showCoffHeader() {
+		if (!parsedData || !parsedData.nt_headers || !parsedData.nt_headers.FileHeader || !peDetails || !detailsTitle) {
+			return;
+		}
+
+		detailsTitle.textContent = 'COFF 头部详细信息';
+		peDetails.innerHTML = '';
+		
+		const container = document.createElement('div');
+		container.className = 'pe-details-section';
+		
+		const header = document.createElement('h4');
+		header.textContent = 'COFF 文件头 (IMAGE_FILE_HEADER)';
+		container.appendChild(header);
+		container.appendChild(generateValueDetails(parsedData.nt_headers.FileHeader, 'coff_header'));
+		
+		peDetails.appendChild(container);
+	}
+
+	function showOptionalHeader() {
+		if (!parsedData || !parsedData.nt_headers || !parsedData.nt_headers.OptionalHeader || !peDetails || !detailsTitle) {
+			return;
+		}
+
+		detailsTitle.textContent = '可选头部详细信息';
+		peDetails.innerHTML = '';
+		
+		const container = document.createElement('div');
+		container.className = 'pe-details-section';
+		
+		const header = document.createElement('h4');
+		header.textContent = '可选头部 (IMAGE_OPTIONAL_HEADER)';
+		container.appendChild(header);
+		container.appendChild(generateValueDetails(parsedData.nt_headers.OptionalHeader, 'optional_header'));
+		
+		peDetails.appendChild(container);
+	}
+
+	function showDataDirectory() {
+		if (!parsedData || !parsedData.nt_headers || !parsedData.nt_headers.OptionalHeader || !peDetails || !detailsTitle) {
+			return;
+		}
+		
+		const dataDir = /** @type {any} */ (parsedData.nt_headers.OptionalHeader).DataDirectory;
+		if (!dataDir) {
+			return;
+		}
+
+		detailsTitle.textContent = '数据目录详细信息';
+		peDetails.innerHTML = '';
+		
+		const directoryNames = [
+			'导出表', '导入表', '资源表', '异常表', '证书表', '重定位表',
+			'调试信息', '架构数据', '全局指针', 'TLS表', '加载配置表', '绑定导入表',
+			'IAT', '延迟导入表', 'CLR运行时头', '保留'
+		];
+		
+		/** @type {Array<string[]>} */
+		const dirRows = [];
+		dataDir.forEach((/** @type {any} */ dir, /** @type {number} */ index) => {
+			if (dir && (dir.VirtualAddress || dir.Size)) {
+				dirRows.push([
+					String(index),
+					directoryNames[index] || '未知',
+					formatAddress(dir.VirtualAddress || 0),
+					String(dir.Size || 0)
+				]);
+			}
+		});
+		
+		peDetails.appendChild(createTable('数据目录表 (IMAGE_DATA_DIRECTORY)', ['索引', '类型', '虚拟地址', '大小'], dirRows, ['pe-details-value', 'pe-details-value', 'pe-details-hex', 'pe-details-value']));
+	}
+
+	function showAllSections() {
+		if (!parsedData || !parsedData.sections || !peDetails || !detailsTitle) {
+			return;
+		}
+
+		detailsTitle.textContent = `区段列表 (共 ${parsedData.sections.length} 个)`;
+		peDetails.innerHTML = '';
+		
+		const sectionRows = parsedData.sections.map((/** @type {Section} */ section, /** @type {number} */ index) => {
+			const sectionName = section.Name ? section.Name.replace(/\0/g, '') : `Section ${index + 1}`;
+			return [
+				sectionName,
+				formatAddress(section.VirtualAddress || 0),
+				String(section.VirtualSize || 0),
+				formatAddress(section.PointerToRawData || 0),
+				String(section.SizeOfRawData || 0),
+				`0x${(section.Characteristics || 0).toString(16).toUpperCase()}`
+			];
+		});
+		
+		peDetails.appendChild(createTable('所有区段概览', ['节名', '虚拟地址', '虚拟大小', '原始指针', '原始大小', '特性'], sectionRows, ['pe-details-value', 'pe-details-hex', 'pe-details-value', 'pe-details-hex', 'pe-details-value', 'pe-details-hex']));
+	}
+
+	/**
+	 * @param {string} sectionName
+	 */
+	function showSection(sectionName) {
+		if (!parsedData || !parsedData.sections || !peDetails || !detailsTitle) {
+			return;
+		}
+
+		const section = parsedData.sections.find((/** @type {Section} */ s) => {
+			const name = s.Name ? s.Name.replace(/\0/g, '') : '';
+			return name === sectionName;
+		});
+
+		if (!section) {
+			detailsTitle.textContent = '区段未找到';
+			showEmptyMessage('未找到指定的区段。');
+			return;
+		}
+
+		detailsTitle.textContent = `区段: ${sectionName}`;
+		peDetails.innerHTML = '';
+		
+		const container = document.createElement('div');
+		container.className = 'pe-details-section';
+		
+		const header = document.createElement('h4');
+		header.textContent = `区段 ${sectionName} 详细信息`;
+		container.appendChild(header);
+		container.appendChild(generateValueDetails(section, `section_${sectionName}`));
+		
+		peDetails.appendChild(container);
+	}
+
+	function showExports() {
+		if (!parsedData || !peDetails || !detailsTitle) {
+			return;
+		}
+
+		if (!parsedData.exports || !parsedData.exports.functions || parsedData.exports.functions.length === 0) {
+			detailsTitle.textContent = '导出函数';
+			showEmptyMessage('此文件没有导出函数。');
+			return;
+		}
+
+		detailsTitle.textContent = `导出函数 (共 ${parsedData.exports.functions.length} 个)`;
+		peDetails.innerHTML = '';
+		
+		const exportRows = parsedData.exports.functions.map((/** @type {ExportFunction} */ func) => {
+			const decodedName = demangleFunctionName(func.name);
+			const cells = [
+				String(func.ordinal),
+				formatAddress(func.address),
+				decodedName,  // 解码后的名称
+				func.name     // 始终显示原始函数名
+			];
+			return cells;
+		});
+		
+		peDetails.appendChild(createTable('导出函数列表', ['序号', '地址 (RVA)', '函数名 (解码后)', '原始函数名'], exportRows, ['pe-details-value', 'pe-details-hex', 'pe-details-value', 'pe-details-value']));
+	}
+
+	/**
+	 * 函数名解码（demangle）- 参考demumble实现
+	 * 支持Microsoft (MSVC)、Itanium (GCC/Clang)、Rust等多种编译器符号
+	 * @param {string} mangled - 被编码的符号名称
+	 * @returns {string} - 解码后的函数名,如果无法解码则返回原始名称
+	 */
+	function demangleFunctionName(mangled) {
+		// 检查是否为合法的编码字符
+		function isMsvcMangleChar(/** @type {string} */ c) {
+			return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || 
+			       (c >= '0' && c <= '9') || '?_@$'.includes(c);
+		}
+
+		function isItaniumMangleChar(/** @type {string} */ c) {
+			return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || 
+			       (c >= '0' && c <= '9') || c === '_' || c === '$';
+		}
+
+		function isRustMangleChar(/** @type {string} */ c) {
+			return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || 
+			       (c >= '0' && c <= '9') || c === '_';
+		}
+
+		// 检查是否为可能的符号前缀
+		function isPlausibleItaniumPrefix(/** @type {string} */ s) {
+			// Itanium符号以1-4个下划线+Z开头
+			const prefix = s.substring(0, 5);
+			return prefix.includes('_Z');
+		}
+
+		function isPlausibleRustPrefix(/** @type {string} */ s) {
+			// Rust符号以_R开头
+			return s.startsWith('_R');
+		}
+
+		// 尝试解码MSVC符号
+		if (mangled.startsWith('?')) {
+			return demangleMsvc(mangled);
+		}
+
+		// 尝试解码Itanium符号 (_Z开头)
+		if (isPlausibleItaniumPrefix(mangled)) {
+			return demangleItanium(mangled);
+		}
+
+		// 尝试解码Rust符号 (_R开头)
+		if (isPlausibleRustPrefix(mangled)) {
+			return demangleRust(mangled);
+		}
+
+		// 无法识别的符号,返回原始名称
+		return mangled;
+	}
+
+	/**
+	 * 解码MSVC符号
+	 * @param {string} mangled
+	 * @returns {string}
+	 */
+	function demangleMsvc(mangled) {
+		try {
+			let pos = 1; // 跳过开头的?
+			const str = mangled;
+
+			function peek() {
+				return pos < str.length ? str[pos] : '';
+			}
+
+			function read() {
+				return pos < str.length ? str[pos++] : '';
+			}
+
+			function readSourceName() {
+				let name = '';
+				// 处理模板名称: ?$name@template_args@
+				if (peek() === '?' && pos + 1 < str.length && str[pos + 1] === '$') {
+					pos += 2; // 跳过 ?$
+					// 读取模板名称
+					while (pos < str.length && str[pos] !== '@') {
+						name += str[pos++];
+					}
+					
+					// 读取并简化模板参数
+					if (peek() === '@') {
+						pos++; // 跳过 @
+						let templateArgs = '';
+						let depth = 1;
+						const argStart = pos;
+						
+						while (pos < str.length && depth > 0) {
+							const ch = str[pos];
+							if (ch === '@') {
+								// 检查下一个字符来判断是否结束
+								if (pos + 1 < str.length && str[pos + 1] !== '$' && str[pos + 1] !== '?') {
+									// 这是模板参数的结束
+									depth--;
+									if (depth === 0) {
+										templateArgs = str.substring(argStart, pos);
+										pos++; // 跳过结束的 @
+										break;
+									}
+								}
+							} else if (ch === '?' && pos + 1 < str.length && str[pos + 1] === '$') {
+								// 嵌套模板
+								depth++;
+							}
+							pos++;
+						}
+						
+						// 简化模板参数显示
+						if (templateArgs) {
+							// MSVC 模板参数编码规则：
+							// $0A@ = 0, $00@ = 1, $01@ = 2, etc.
+							// $H = int, $D = char, $N = bool, etc.
+							let simplifiedArgs = templateArgs;
+							
+							// 数字模板参数
+							if (templateArgs.startsWith('$0')) {
+								const numPart = templateArgs.substring(1);
+								if (numPart === '0A') {
+									simplifiedArgs = '0';
+								} else if (numPart.match(/^0[0-9A-F]$/)) {
+									// $00=1, $01=2, ... $09=10, $0A=0(循环), $0B=11, etc.
+									const hexDigit = numPart[1];
+									if (hexDigit >= '0' && hexDigit <= '9') {
+										simplifiedArgs = String(parseInt(hexDigit, 10) + 1);
+									} else {
+										simplifiedArgs = String(parseInt(hexDigit, 16));
+									}
+								}
+							}
+							// 类型模板参数（简化显示）
+							else if (templateArgs === '$H') {
+								simplifiedArgs = 'int';
+							} else if (templateArgs === '$D') {
+								simplifiedArgs = 'char';
+							} else if (templateArgs === '$_N') {
+								simplifiedArgs = 'bool';
+							}
+							
+							name += `<${simplifiedArgs}>`;
+						}
+					}
+					return name;
+				}
+				
+				// 普通名称
+				while (pos < str.length && str[pos] !== '@') {
+					name += str[pos++];
+				}
+				return name;
+			}
+
+			function readQualifiedName() {
+				const parts = [];
+				while (pos < str.length) {
+					if (peek() === '@') {
+						pos++;
+						if (peek() === '@') {
+							pos++;
+							break;
+						}
+						continue;
+					}
+					const part = readSourceName();
+					if (part) {
+						parts.push(part);
+					}
+				}
+				return parts.reverse().join('::');
+			}
+
+			// 特殊操作符映射
+			const specialNames = {
+				'0': 'constructor',
+				'1': 'destructor',
+				'2': 'operator new',
+				'3': 'operator delete',
+				'4': 'operator=',
+				'5': 'operator>>',
+				'6': 'operator<<',
+				'7': 'operator!',
+				'8': 'operator==',
+				'9': 'operator!=',
+				'A': 'operator[]',
+				'C': 'operator->',
+				'D': 'operator*',
+				'E': 'operator++',
+				'F': 'operator--',
+				'G': 'operator-',
+				'H': 'operator+',
+				'I': 'operator&',
+				'J': 'operator->*',
+				'K': 'operator/',
+				'L': 'operator%',
+				'M': 'operator<',
+				'N': 'operator<=',
+				'O': 'operator>',
+				'P': 'operator>=',
+				'Q': 'operator,',
+				'R': 'operator()',
+				'S': 'operator~',
+				'T': 'operator^',
+				'U': 'operator|',
+				'V': 'operator&&',
+				'W': 'operator||',
+				'X': 'operator*=',
+				'Y': 'operator+=',
+				'Z': 'operator-='
+			};
+
+			const extendedNames = {
+				'_0': 'operator/=',
+				'_1': 'operator%=',
+				'_2': 'operator>>=',
+				'_3': 'operator<<=',
+				'_4': 'operator&=',
+				'_5': 'operator|=',
+				'_6': 'operator^=',
+				'_7': '`vftable\'',
+				'_8': '`vbtable\'',
+				'_9': '`vcall\'',
+				'_A': '`typeof\'',
+				'_B': '`local static guard\'',
+				'_C': '`string\'',
+				'_D': '`vbase destructor\'',
+				'_E': '`vector deleting destructor\'',
+				'_F': '`default constructor closure\'',
+				'_G': '`scalar deleting destructor\'',
+				'_H': '`vector constructor iterator\'',
+				'_I': '`vector destructor iterator\'',
+				'_J': '`vector vbase constructor iterator\'',
+				'_K': '`virtual displacement map\'',
+				'_L': '`eh vector constructor iterator\'',
+				'_M': '`eh vector destructor iterator\'',
+				'_N': '`eh vector vbase constructor iterator\'',
+				'_O': '`copy constructor closure\'',
+				'_P': '`udt returning\'',
+				'_R': 'RTTI Type Descriptor',
+				'_S': '`local vftable\'',
+				'_T': '`local vftable constructor closure\'',
+				'_U': 'operator new[]',
+				'_V': 'operator delete[]',
+				'_X': '`placement delete closure\'',
+				'_Y': '`placement delete[] closure\''
+			};
+
+			// 解析函数参数类型
+			function parseArgumentTypes() {
+				// 跳过访问修饰符和调用约定 (如 QEAA, AEAA等)
+			while (pos < str.length && /[A-Z]/.test(str[pos])) {
+				const ch = str[pos];
+				if (ch === 'X' || ch === 'Z') {
+					break; // X=void, Z=结束
+				}
+				pos++;
+			}
+			
+			if (pos >= str.length) {
+				return '';
+			}				// 解析参数
+				const args = [];
+				while (pos < str.length && str[pos] !== 'Z' && str[pos] !== '@') {
+					const type = parseType();
+					if (type) {
+						args.push(type);
+					} else {
+						break;
+					}
+				}
+				
+				return args.length > 0 ? args.join(', ') : 'void';
+			}
+			
+			// 解析单个类型
+			/**
+			 * @returns {string}
+			 */
+			function parseType() {
+				if (pos >= str.length) {
+					return '';
+				}
+				
+				const ch = str[pos++];
+				
+				// 基本类型
+				const typeMap = {
+					'X': 'void',
+					'D': 'char',
+					'E': 'unsigned char',
+					'F': 'short',
+					'G': 'unsigned short',
+					'H': 'int',
+					'I': 'unsigned int',
+					'J': 'long',
+					'K': 'unsigned long',
+					'M': 'float',
+					'N': 'double',
+					'_N': 'bool',
+					'O': 'long double',
+					'_J': '__int64',
+					'_K': 'unsigned __int64'
+				};
+				
+				// 修饰符
+				if (ch === 'P') {
+					// 指针
+					if (peek() === 'E' && pos + 1 < str.length && str[pos + 1] === 'A') {
+						// PEA = 引用 &
+						pos += 2;
+						return parseType() + ' &';
+					} else if (peek() === '6') {
+						// P6 = 函数指针
+						pos++; // 跳过 6
+						let returnType = parseType();
+						if (peek() === 'A') {
+							pos++; // 跳过调用约定
+						}
+						let params = [];
+						while (pos < str.length && str[pos] !== 'Z' && str[pos] !== '@') {
+							const paramType = parseType();
+							if (paramType) {
+								params.push(paramType);
+							} else {
+								break;
+							}
+						}
+						if (peek() === 'Z') {
+							pos++; // 跳过结束符
+						}
+						const paramList = params.length > 0 ? params.join(', ') : 'void';
+						return `${returnType} (*)(${paramList})`;
+					}
+					return parseType() + ' *';
+				} else if (ch === 'A') {
+					// A开头可能是引用或其他
+					if (peek() === 'E') {
+						pos++;
+						return parseType() + ' &';
+					}
+					return parseType();
+				} else if (ch === 'Q') {
+					// Q = const
+					return 'const ' + parseType();
+				} else if (ch === 'R') {
+					// R = volatile
+					return 'volatile ' + parseType();
+				} else if (ch === '_') {
+					// 扩展类型
+					const next = peek();
+					if (next === 'N') {
+						pos++;
+						return 'bool';
+					} else if (next === 'J') {
+						pos++;
+						return '__int64';
+					} else if (next === 'K') {
+						pos++;
+						return 'unsigned __int64';
+					}
+				}
+				
+				// 检查基本类型映射
+				// @ts-ignore
+				if (typeMap[ch]) {
+					// @ts-ignore
+					return typeMap[ch];
+				}
+				
+				// 未识别的类型，返回空
+				return '';
+			}
+
+			// 检查特殊名称
+			if (peek() === '?') {
+				pos++;
+				const opCode = read();
+				let opName = '';
+				
+				if (opCode === '_') {
+					const extCode = read();
+					const key = '_' + extCode;
+					// @ts-ignore
+					opName = extendedNames[key] || `operator_${extCode}`;
+				} else {
+					// @ts-ignore
+					opName = specialNames[opCode] || `operator${opCode}`;
+				}
+				
+				const className = readQualifiedName();
+				
+				// 解析函数参数
+				const params = parseArgumentTypes();
+				
+				if (opName === 'constructor') {
+					const simpleName = className.split('::').pop() || className;
+					return `${className}::${simpleName}(${params})`;
+				} else if (opName === 'destructor') {
+					const simpleName = className.split('::').pop() || className;
+					return `${className}::~${simpleName}()`;
+				}
+				return `${className}::${opName}`;
+			}
+
+			// 普通函数或成员函数
+			const funcName = readSourceName();
+			const scope = readQualifiedName();
+			
+			// 解析函数参数
+			const params = parseArgumentTypes();
+			
+			if (scope) {
+				return `${scope}::${funcName}(${params})`;
+			}
+			return funcName ? `${funcName}(${params})` : mangled;
+
+		} catch (e) {
+			return mangled;
+		}
+	}
+
+	/**
+	 * 解码Itanium C++ ABI符号 (GCC/Clang使用)
+	 * @param {string} mangled
+	 * @returns {string}
+	 */
+	function demangleItanium(mangled) {
+		// 简化的Itanium解码实现
+		// 完整实现需要LLVM的Demangle库,这里只做基本解析
+		try {
+			// 去除前导下划线
+			let symbol = mangled;
+			while (symbol.startsWith('_') && symbol.length > 2) {
+				symbol = symbol.substring(1);
+			}
+
+			if (!symbol.startsWith('Z')) {
+				return mangled;
+			}
+
+			// 基本模式: _Z + 长度 + 名称
+			let pos = 1; // 跳过Z
+			const nameParts = [];
+
+			while (pos < symbol.length) {
+				// 读取长度
+				let len = 0;
+				while (pos < symbol.length && symbol[pos] >= '0' && symbol[pos] <= '9') {
+					len = len * 10 + (symbol.charCodeAt(pos) - 48);
+					pos++;
+				}
+
+				if (len === 0) {
+					break;
+				}
+
+				// 读取名称部分
+				const part = symbol.substring(pos, pos + len);
+				nameParts.push(part);
+				pos += len;
+
+				// 检查是否还有更多部分
+				if (pos >= symbol.length || (symbol[pos] < '0' || symbol[pos] > '9')) {
+					break;
+				}
+			}
+
+			if (nameParts.length > 0) {
+				return nameParts.join('::') + '()';
+			}
+
+			return mangled;
+		} catch (e) {
+			return mangled;
+		}
+	}
+
+	/**
+	 * 解码Rust符号
+	 * @param {string} mangled
+	 * @returns {string}
+	 */
+	function demangleRust(mangled) {
+		// 简化的Rust解码实现
+		// Rust v0规范: https://rust-lang.github.io/rfcs/2603-rust-symbol-name-mangling-v0.html
+		try {
+			if (!mangled.startsWith('_R')) {
+				return mangled;
+			}
+
+			// 基本解析,移除哈希和特殊字符
+			let result = mangled.substring(2);
+			
+			// 移除结尾的哈希值 (通常是17个十六进制字符)
+			result = result.replace(/[0-9a-f]{17}$/, '');
+			
+			// 将路径分隔符转换为::
+			result = result.replace(/(\d+)/g, (match, num) => {
+				return '::';
+			});
+
+			// 清理多余的分隔符
+			result = result.replace(/^::+|::+$/g, '').replace(/::+/g, '::');
+
+			return result || mangled;
+		} catch (e) {
+			return mangled;
+		}
+	}
+
+	function showImportsOverview() {
+		if (!parsedData || !peDetails || !detailsTitle) {
+			return;
+		}
+
+		if (!parsedData.imports || parsedData.imports.length === 0) {
+			detailsTitle.textContent = '导入函数';
+			showEmptyMessage('此文件没有导入函数。');
+			return;
+		}
+
+		// 收集所有导入函数
+		/** @type {Array<{dll: string, name: string, type: string}>} */
+		const allFunctions = [];
+		let totalFunctions = 0;
+		
+		parsedData.imports.forEach((/** @type {ImportDLL} */ dll) => {
+			if (dll.functions) {
+				dll.functions.forEach((/** @type {ImportFunction} */ func) => {
+					allFunctions.push({
+						dll: dll.name,
+						name: func.name || `序号 ${func.ordinal}`,
+						type: func.name ? '按名称' : '按序号'
+					});
+					totalFunctions++;
+				});
+			}
+		});
+
+		detailsTitle.textContent = `导入函数总览 (共 ${totalFunctions} 个函数，${parsedData.imports.length} 个DLL)`;
+		peDetails.innerHTML = '';
+		
+		// 创建函数列表表格
+		const funcRows = allFunctions.map(func => [
+			func.dll,
+			func.name,
+			func.type
+		]);
+		
+		peDetails.appendChild(createTable(
+			'所有导入函数',
+			['DLL', '函数名称', '类型'],
+			funcRows,
+			['pe-details-value', 'pe-details-value', 'pe-details-value']
+		));
+	}
+
+	/**
+	 * @param {ImportDLL} dll
+	 */
+	function showDllImports(dll) {
+		if (!dll || !peDetails || !detailsTitle) {
+			return;
+		}
+
+		const funcCount = dll.functions ? dll.functions.length : 0;
+		detailsTitle.textContent = `${dll.name} - 导入函数 (共 ${funcCount} 个)`;
+		peDetails.innerHTML = '';
+		
+		if (!dll.functions || dll.functions.length === 0) {
+			showEmptyMessage(`${dll.name} 没有导入函数。`);
+			return;
+		}
+		
+		// 只显示当前DLL的函数
+		const funcRows = dll.functions.map((/** @type {ImportFunction} */ func) => {
+			return [
+				dll.name,
+				func.name || `序号 ${func.ordinal}`,
+				func.name ? '按名称' : '按序号'
+			];
+		});
+		
+		peDetails.appendChild(createTable(
+			`${dll.name} 导入的函数`,
+			['DLL', '函数名称', '类型'],
+			funcRows,
+			['pe-details-value', 'pe-details-value', 'pe-details-value']
+		));
+	}
+
+	/**
+	 * @param {any} value
+	 * @param {string} path
+	 * @returns {DocumentFragment}
+	 */
+	function generateValueDetails(value, path) {
+		const fragment = document.createDocumentFragment();
+		const container = document.createElement('div');
+		container.className = 'pe-details-section';
+
+		if (typeof value === 'number' || typeof value === 'bigint') {
+			const numValue = Number(value);
+			const rows = [
+				['十进制', String(numValue)],
+				['十六进制', `0x${numValue.toString(16).toUpperCase()}`],
+				['二进制', numValue.toString(2)]
+			];
+			container.appendChild(createTable('数值详细信息', ['属性', '值'], rows, ['', 'pe-details-value']));
+		} else if (typeof value === 'string') {
+			const rows = [
+				['字符串', value],
+				['长度', String(value.length)],
+				['十六进制', Array.from(value).map(c => c.charCodeAt(0).toString(16).toUpperCase().padStart(2, '0')).join(' ')]
+			];
+			container.appendChild(createTable('字符串详细信息', ['属性', '值'], rows, ['', 'pe-details-value']));
+		} else if (typeof value === 'object' && value !== null) {
+			const rows = [];
+			for (const [key, val] of Object.entries(value)) {
+				if (typeof val === 'number' || typeof val === 'bigint') {
+					const numVal = Number(val);
+					rows.push([key, String(numVal), `0x${numVal.toString(16).toUpperCase()}`]);
+				} else if (typeof val === 'string') {
+					rows.push([key, val, '-']);
+				} else if (Array.isArray(val)) {
+					rows.push([key, `[数组, 长度: ${val.length}]`, '-']);
+				} else if (typeof val === 'object' && val !== null) {
+					rows.push([key, '[对象]', '-']);
+				} else {
+					rows.push([key, String(val), '-']);
+				}
+			}
+			container.appendChild(createTable('结构详细信息', ['字段', '值', '十六进制'], rows, ['', 'pe-details-value', 'pe-details-hex']));
+		} else {
+			const pre = document.createElement('pre');
+			pre.textContent = JSON.stringify(value, null, 2);
+			container.appendChild(pre);
+		}
+
+		fragment.appendChild(container);
+		return fragment;
+	}
+	
+	/**
+	 * 显示资源总览
+	 */
+	function showResourcesOverview() {
+		if (!parsedData || !peDetails || !detailsTitle) {
+			return;
+		}
+		
+		detailsTitle.textContent = '资源总览';
+		peDetails.innerHTML = '';
+		
+		// 检查是否有资源数据
+		if (!parsedData.resources || Object.keys(parsedData.resources).length === 0) {
+			showEmptyMessage('此文件没有资源或资源解析失败。');
+			return;
+		}
+		
+		// 查找.rsrc资源节
+		const rsrcSection = parsedData.sections ? parsedData.sections.find(s => 
+			s.Name && s.Name.replace(/\0/g, '').toLowerCase() === '.rsrc'
+		) : null;
+		
+		if (rsrcSection) {
+			// 显示资源节基本信息
+			const rows = [
+				['节名称', '.rsrc', '资源节'],
+				['虚拟地址', formatAddress(rsrcSection.VirtualAddress || 0), '资源在内存中的地址'],
+				['虚拟大小', String(rsrcSection.VirtualSize || 0), `${rsrcSection.VirtualSize} 字节`],
+				['原始数据指针', formatAddress(rsrcSection.PointerToRawData || 0), '文件中的偏移'],
+				['原始数据大小', String(rsrcSection.SizeOfRawData || 0), `${rsrcSection.SizeOfRawData} 字节`],
+				['特性', `0x${(rsrcSection.Characteristics || 0).toString(16).toUpperCase()}`, '节属性标志']
+			];
+			
+			peDetails.appendChild(createTable('资源节信息', ['字段', '值', '描述'], rows, ['', 'pe-details-value', '']));
+		}
+		
+		// 统计资源类型
+		const resourceTypeMap = {
+			1: '光标 (Cursor)',
+			2: '位图 (Bitmap)',
+			3: '图标 (Icon)',
+			4: '菜单 (Menu)',
+			5: '对话框 (Dialog)',
+			6: '字符串表 (String Table)',
+			9: '快捷键 (Accelerator)',
+			10: '原始数据 (RC Data)',
+		12: '光标组 (Cursor Group)',
+		14: '图标组 (Icon Group)',
+			16: '版本信息 (Version)',
+			24: '清单 (Manifest)'
+		};
+		
+		/** @type {Record<number, string>} */
+		const resourceTypeMapTyped = resourceTypeMap;
+		
+		const typeRows = [];
+		let totalResources = 0;
+		
+		Object.keys(parsedData.resources).sort((a, b) => Number(a) - Number(b)).forEach(typeNum => {
+			const typeId = Number(typeNum);
+			if (!parsedData || !parsedData.resources) {
+				return;
+			}
+			const entries = parsedData.resources[typeId];
+			const count = entries ? entries.length : 0;
+			totalResources += count;
+			
+			const typeName = resourceTypeMapTyped[typeId] || `未知类型`;
+			typeRows.push([
+				String(typeId),
+				typeName,
+				String(count),
+				`${entries.reduce((sum, e) => sum + e.size, 0)} 字节`
+			]);
+		});
+		
+		typeRows.push(['', '总计', String(totalResources), '']);
+		
+		peDetails.appendChild(createTable('已解析的资源类型', ['类型ID', '名称', '数量', '总大小'], typeRows, ['pe-details-value', '', 'pe-details-value', 'pe-details-value']));
+		
+		// 提示信息
+		const hint = document.createElement('p');
+		hint.style.marginTop = '20px';
+		hint.style.color = 'var(--vscode-descriptionForeground)';
+		hint.textContent = '💡 提示：点击左侧具体的资源类型可查看详细信息和预览内容。';
+		peDetails.appendChild(hint);
+	}
+	
+	/**
+	 * 辅助函数：在容器中显示单个图标
+	 * @param {any} entry - 图标资源条目
+	 * @param {number|string} iconId - 图标ID
+	 * @param {HTMLElement} container - 容器元素
+	 * @param {string} logPrefix - 日志前缀
+	 */
+	function showIconInContainer(entry, iconId, container, logPrefix) {
+		showIconInContainerWithSize(entry, iconId, container, logPrefix, null, null, null);
+	}
+	
+	/**
+	 * 辅助函数：在容器中显示单个图标(带尺寸信息)
+	 * @param {any} entry - 图标资源条目
+	 * @param {number|string} iconId - 图标ID
+	 * @param {HTMLElement} container - 容器元素
+	 * @param {string} logPrefix - 日志前缀
+	 * @param {number|null} width - 宽度
+	 * @param {number|null} height - 高度
+	 * @param {number|null} bitCount - 位深度
+	 */
+	function showIconInContainerWithSize(entry, iconId, container, logPrefix, width, height, bitCount) {
+		try {
+			console.log(`[Icon ${logPrefix}] Starting to process icon ID ${iconId}`);
+			
+			// 获取图标数据
+			/** @type {any} */
+			const entryData = entry.data;
+			const dataArray = entryData.data || entryData;
+			const iconData = new Uint8Array(dataArray);
+			
+			console.log(`[Icon ${logPrefix}] Icon data size: ${iconData.length} bytes`);
+			
+			let url;
+			let blob;
+			let fileExtension = 'ico'; // 默认扩展名
+			
+			// 检查是否是PNG格式
+			if (iconData.length > 4 && iconData[0] === 0x89 && iconData[1] === 0x50 && iconData[2] === 0x4E && iconData[3] === 0x47) {
+				console.log(`[Icon ${logPrefix}] Detected PNG format`);
+				blob = new Blob([iconData], { type: 'image/png' });
+				fileExtension = 'png'; // PNG格式
+			} else {
+				// BMP格式 - 构建ICO文件
+				console.log(`[Icon ${logPrefix}] Detected BMP format - building ICO file`);
+				
+				const headerSize = iconData[0] | (iconData[1] << 8) | (iconData[2] << 16) | (iconData[3] << 24);
+				
+				if (headerSize === 40) {
+					const width = iconData[4] | (iconData[5] << 8) | (iconData[6] << 16) | (iconData[7] << 24);
+					const fullHeight = iconData[8] | (iconData[9] << 8) | (iconData[10] << 16) | (iconData[11] << 24);
+					const actualHeight = Math.floor(fullHeight / 2);
+					const bpp = iconData[14] | (iconData[15] << 8);
+					
+					// 构建ICO文件：ICONDIR(6) + ICONDIRENTRY(16) + 图标数据
+					const icoSize = 6 + 16 + iconData.length;
+					const icoData = new Uint8Array(icoSize);
+					
+					// ICONDIR (6字节)
+					icoData[0] = 0; icoData[1] = 0; // Reserved
+					icoData[2] = 1; icoData[3] = 0; // Type: 1 = ICO
+					icoData[4] = 1; icoData[5] = 0; // Count: 1 image
+					
+					// ICONDIRENTRY (16字节)
+					icoData[6] = (width > 255 ? 0 : width);  // Width (0 means 256)
+					icoData[7] = (actualHeight > 255 ? 0 : actualHeight); // Height
+					icoData[8] = 0;  // Color count
+					icoData[9] = 0;  // Reserved
+					icoData[10] = 1; icoData[11] = 0; // Color planes
+					icoData[12] = bpp & 0xFF; icoData[13] = (bpp >> 8) & 0xFF; // Bits per pixel
+					icoData[14] = iconData.length & 0xFF;
+					icoData[15] = (iconData.length >> 8) & 0xFF;
+					icoData[16] = (iconData.length >> 16) & 0xFF;
+					icoData[17] = (iconData.length >> 24) & 0xFF;
+					icoData[18] = 22; icoData[19] = 0; icoData[20] = 0; icoData[21] = 0;
+					
+					// 复制BMP数据
+					icoData.set(iconData, 22);
+					
+					blob = new Blob([icoData], { type: 'image/x-icon' });
+				} else {
+					console.warn(`[Icon ${logPrefix}] Unsupported header size: ${headerSize}`);
+					blob = new Blob([iconData], { type: 'application/octet-stream' });
+				}
+			}
+			
+			url = URL.createObjectURL(blob);
+			
+			const iconWrapper = document.createElement('div');
+			iconWrapper.style.textAlign = 'center';
+			iconWrapper.style.padding = '12px';
+			iconWrapper.style.border = '1px solid var(--vscode-panel-border)';
+			iconWrapper.style.borderRadius = '4px';
+			iconWrapper.style.minWidth = '120px';
+			
+			// 信息标签(在图标上方)
+			const infoLabel = document.createElement('div');
+			infoLabel.style.fontSize = '11px';
+			infoLabel.style.marginBottom = '8px';
+			infoLabel.style.lineHeight = '1.4';
+			infoLabel.style.color = 'var(--vscode-descriptionForeground)';
+			
+			if (width !== null && height !== null) {
+				const idStr = typeof iconId === 'string' ? iconId : `#${iconId}`;
+				infoLabel.innerHTML = `<div style="font-weight: bold; color: var(--vscode-foreground);">${idStr}</div>` +
+									  `<div>${width}×${height}</div>` +
+									  (bitCount ? `<div>${bitCount} bit</div>` : '');
+			} else {
+				const idStr = typeof iconId === 'string' ? iconId : `#${iconId}`;
+				infoLabel.innerHTML = `<div style="font-weight: bold; color: var(--vscode-foreground);">${idStr}</div>`;
+			}
+			
+			iconWrapper.appendChild(infoLabel);
+			
+			const img = document.createElement('img');
+			img.src = url;
+			img.style.maxWidth = '64px';
+			img.style.maxHeight = '64px';
+			img.style.display = 'block';
+			img.style.margin = '0 auto';
+			img.style.border = '1px solid var(--vscode-widget-border)';
+			img.style.borderRadius = '2px';
+			img.style.cursor = 'pointer';
+			img.title = '点击保存图标';
+			
+			// 点击图标保存文件
+			img.addEventListener('click', () => {
+				const idStr = typeof iconId === 'string' ? iconId : iconId;
+				const sizeStr = width && height ? `_${width}x${height}` : '';
+				const filename = `icon_${idStr}${sizeStr}.${fileExtension}`;
+				
+				// 创建下载链接
+				const a = document.createElement('a');
+				a.href = url;
+				a.download = filename;
+				a.click();
+				
+				console.log(`[Icon ${logPrefix}] Downloading as ${filename}`);
+			});
+			
+			img.onload = () => {
+				console.log(`[Icon ${logPrefix}] ✓ Loaded: ${img.naturalWidth}x${img.naturalHeight}`);
+			};
+			
+			img.onerror = (e) => {
+				console.error(`[Icon ${logPrefix}] ✗ Load failed:`, e);
+				img.style.display = 'none';
+				const errorText = document.createElement('div');
+				errorText.textContent = '无法显示';
+				errorText.style.fontSize = '12px';
+				errorText.style.marginTop = '8px';
+				errorText.style.color = 'var(--vscode-errorForeground)';
+				iconWrapper.appendChild(errorText);
+			};
+			
+			iconWrapper.appendChild(img);
+			
+			container.appendChild(iconWrapper);
+		} catch (error) {
+			console.error(`[Icon ${logPrefix}] Exception:`, error);
+		}
+	}
+	
+	/**
+	 * 显示特定资源类型
+	 * @param {string} resourceType - 资源类型ID
+	 */
+	function showResourceType(resourceType) {
+		if (!parsedData || !peDetails || !detailsTitle) {
+			return;
+		}
+		
+		const typeId = Number(resourceType);
+		
+	// 资源类型映射
+	const resourceTypeMap = {
+		1: { name: '光标 (Cursor)', type: 1, desc: '鼠标指针图像资源' },
+		2: { name: '位图 (Bitmap)', type: 2, desc: 'BMP格式的图像资源' },
+		3: { name: '图标 (Icon)', type: 3, desc: '应用程序图标资源' },
+		4: { name: '菜单 (Menu)', type: 4, desc: '应用程序菜单定义' },
+		5: { name: '对话框 (Dialog)', type: 5, desc: '对话框窗口模板' },
+		6: { name: '字符串表 (String Table)', type: 6, desc: '本地化字符串资源' },
+		9: { name: '快捷键 (Accelerator)', type: 9, desc: '键盘快捷键定义' },
+		10: { name: '原始数据 (RC Data)', type: 10, desc: '原始二进制数据' },
+		12: { name: '光标组 (Cursor Group)', type: 12, desc: '光标集合，包含多个尺寸的光标' },
+		14: { name: '图标组 (Icon Group)', type: 14, desc: '图标集合，包含多个尺寸的图标' },
+		16: { name: '版本信息 (Version)', type: 16, desc: '文件版本和公司信息' },
+		24: { name: '清单 (Manifest)', type: 24, desc: 'XML格式的应用程序清单' }
+	};
+	
+	/** @type {Record<number, {name: string, type: number, desc: string}>} */
+	const resourceTypeMapTyped = resourceTypeMap;
+		
+	const resInfo = resourceTypeMapTyped[typeId] || {
+			name: `资源类型 ${typeId}`,
+			type: typeId,
+			desc: '未知资源类型'
+		};
+		
+		detailsTitle.textContent = resInfo.name;
+		peDetails.innerHTML = '';
+		
+		// 检查是否有此类型的资源
+		if (!parsedData.resources || !parsedData.resources[typeId]) {
+			showEmptyMessage(`此文件没有 ${resInfo.name} 资源。`);
+			return;
+		}
+		
+		const entries = parsedData.resources[typeId];
+
+		// 显示资源列表
+		const resourceRows = entries.map((entry, index) => {
+			const idStr = typeof entry.id === 'string' ? entry.id : `#${entry.id}`;
+			const sizeStr = `${entry.size} 字节`;
+			return [
+				String(index + 1),
+				idStr,
+				sizeStr,
+				entry.codePage ? String(entry.codePage) : 'N/A'
+			];
+		});
+		
+		peDetails.appendChild(createTable('资源列表', ['序号', 'ID/名称', '大小', '代码页'], resourceRows, ['pe-details-value', 'pe-details-value', 'pe-details-value', 'pe-details-value']));
+		
+	// 特殊处理：图标显示
+	if (typeId === 3 && entries.length > 0) {
+		const iconTitle = document.createElement('h4');
+		iconTitle.textContent = '图标预览';
+		iconTitle.style.marginTop = '20px';
+		peDetails.appendChild(iconTitle);
+		
+		const iconContainer = document.createElement('div');
+		iconContainer.style.display = 'flex';
+		iconContainer.style.flexWrap = 'wrap';
+		iconContainer.style.gap = '10px';
+		iconContainer.style.marginTop = '10px';
+		
+		entries.forEach((entry, index) => {
+			showIconInContainer(entry, entry.id, iconContainer, String(index));
+		});
+		
+		peDetails.appendChild(iconContainer);
+	}
+	
+	// 特殊处理：位图显示
+	if (typeId === 2 && entries.length > 0) {
+		const bitmapTitle = document.createElement('h4');
+		bitmapTitle.textContent = '位图预览';
+		bitmapTitle.style.marginTop = '20px';
+		peDetails.appendChild(bitmapTitle);
+		
+		const bitmapContainer = document.createElement('div');
+		bitmapContainer.style.display = 'flex';
+		bitmapContainer.style.flexWrap = 'wrap';
+		bitmapContainer.style.gap = '15px';
+		bitmapContainer.style.marginTop = '10px';
+		
+		entries.forEach((entry, index) => {
+			try {
+				/** @type {any} */
+				const entryData = entry.data;
+				const dataArray = entryData.data || entryData;
+				const dibData = new Uint8Array(dataArray);
+				
+				// PE资源中的位图缺少BITMAPFILEHEADER (14字节)
+				// 需要手动构建完整的BMP文件
+				
+				// 读取BITMAPINFOHEADER的信息
+				const headerSize = dibData[0] | (dibData[1] << 8) | (dibData[2] << 16) | (dibData[3] << 24);
+				const width = dibData[4] | (dibData[5] << 8) | (dibData[6] << 16) | (dibData[7] << 24);
+				const height = dibData[8] | (dibData[9] << 8) | (dibData[10] << 16) | (dibData[11] << 24);
+				const bitCount = dibData[14] | (dibData[15] << 8);
+				
+				// 计算调色板大小（如果有）
+				let paletteSize = 0;
+				if (bitCount <= 8) {
+					const colorsUsed = dibData[32] | (dibData[33] << 8) | (dibData[34] << 16) | (dibData[35] << 24);
+					paletteSize = (colorsUsed || (1 << bitCount)) * 4;
+				}
+				
+				// 像素数据偏移 = 14字节文件头 + 信息头 + 调色板
+				const pixelDataOffset = 14 + headerSize + paletteSize;
+				
+				// 构建BITMAPFILEHEADER (14字节)
+				const fileHeader = new Uint8Array(14);
+				fileHeader[0] = 0x42; // 'B'
+				fileHeader[1] = 0x4D; // 'M'
+				
+				// 文件大小 = 文件头(14) + DIB数据
+				const fileSize = 14 + dibData.length;
+				fileHeader[2] = fileSize & 0xFF;
+				fileHeader[3] = (fileSize >> 8) & 0xFF;
+				fileHeader[4] = (fileSize >> 16) & 0xFF;
+				fileHeader[5] = (fileSize >> 24) & 0xFF;
+				
+				// 保留字段
+				fileHeader[6] = 0;
+				fileHeader[7] = 0;
+				fileHeader[8] = 0;
+				fileHeader[9] = 0;
+				
+				// 像素数据偏移
+				fileHeader[10] = pixelDataOffset & 0xFF;
+				fileHeader[11] = (pixelDataOffset >> 8) & 0xFF;
+				fileHeader[12] = (pixelDataOffset >> 16) & 0xFF;
+				fileHeader[13] = (pixelDataOffset >> 24) & 0xFF;
+				
+				// 合并文件头和DIB数据
+				const bmpData = new Uint8Array(fileHeader.length + dibData.length);
+				bmpData.set(fileHeader, 0);
+				bmpData.set(dibData, fileHeader.length);
+				
+				// 创建位图容器
+				const bitmapWrapper = document.createElement('div');
+				bitmapWrapper.style.border = '1px solid var(--vscode-panel-border)';
+				bitmapWrapper.style.padding = '10px';
+				bitmapWrapper.style.borderRadius = '4px';
+				bitmapWrapper.style.backgroundColor = 'var(--vscode-editor-background)';
+				
+				// 位图信息
+				const bitmapId = typeof entry.id === 'string' ? entry.id : `#${entry.id}`;
+				const infoDiv = document.createElement('div');
+				infoDiv.style.marginBottom = '8px';
+				infoDiv.style.fontSize = '11px';
+				infoDiv.style.color = 'var(--vscode-descriptionForeground)';
+				infoDiv.textContent = `位图 ${bitmapId} (${width}x${Math.abs(height)}, ${bitCount}bit)`;
+				bitmapWrapper.appendChild(infoDiv);
+				
+				// 创建Blob和URL
+				const blob = new Blob([bmpData], { type: 'image/bmp' });
+				const url = URL.createObjectURL(blob);
+				
+				// 创建图片元素
+				const img = document.createElement('img');
+				img.src = url;
+				img.style.maxWidth = '300px';
+				img.style.maxHeight = '300px';
+				img.style.display = 'block';
+				img.style.border = '1px solid var(--vscode-input-border)';
+				img.style.backgroundColor = '#ffffff';
+				img.style.cursor = 'pointer';
+				img.title = '点击保存位图';
+				
+				// 点击图片保存
+				img.addEventListener('click', () => {
+					const a = document.createElement('a');
+					a.href = url;
+					a.download = `bitmap_${bitmapId.replace(/[^a-zA-Z0-9]/g, '_')}.bmp`;
+					a.click();
+				});
+				
+				img.onload = () => {
+					// 添加实际尺寸信息
+					const sizeInfo = document.createElement('div');
+					sizeInfo.style.marginTop = '5px';
+					sizeInfo.style.fontSize = '10px';
+					sizeInfo.style.color = 'var(--vscode-descriptionForeground)';
+					sizeInfo.textContent = `${img.naturalWidth}x${img.naturalHeight}`;
+					bitmapWrapper.appendChild(sizeInfo);
+				};
+				
+				img.onerror = () => {
+					img.style.display = 'none';
+					const errorText = document.createElement('div');
+					errorText.textContent = '⚠️ 位图加载失败';
+					errorText.style.color = 'var(--vscode-errorForeground)';
+					errorText.style.fontSize = '11px';
+					bitmapWrapper.appendChild(errorText);
+				};
+				
+				bitmapWrapper.appendChild(img);
+				bitmapContainer.appendChild(bitmapWrapper);
+			} catch (error) {
+				console.error(`Failed to display bitmap ${index}:`, error);
+			}
+		});
+		
+		peDetails.appendChild(bitmapContainer);
+	}
+	
+	// 特殊处理：图标组显示(type=14)
+	if (typeId === 14 && entries.length > 0) {
+		// 获取所有图标资源
+		const allIcons = parsedData.resources[3] || [];
+		
+		// 遍历每个图标组
+		entries.forEach((groupEntry, groupIndex) => {
+			const groupTitle = document.createElement('h4');
+			const groupId = typeof groupEntry.id === 'string' ? groupEntry.id : `#${groupEntry.id}`;
+			groupTitle.textContent = `图标组 ${groupId}`;
+			groupTitle.style.marginTop = groupIndex === 0 ? '20px' : '30px';
+			peDetails.appendChild(groupTitle);
+			
+			try {
+				/** @type {any} */
+				const groupData = groupEntry.data;
+				const groupArray = groupData.data || groupData;
+				const groupBytes = new Uint8Array(groupArray);
+				
+				// 解析图标组结构
+				// GRPICONDIR: Reserved(2) + Type(2) + Count(2) + GRPICONDIRENTRY[Count]
+				if (groupBytes.length < 6) {
+					console.warn(`[Icon Group ${groupIndex}] Data too small`);
+					return;
+				}
+				
+				const reserved = groupBytes[0] | (groupBytes[1] << 8);
+				const type = groupBytes[2] | (groupBytes[3] << 8);
+				const iconCount = groupBytes[4] | (groupBytes[5] << 8);
+				
+				console.log(`[Icon Group ${groupIndex}] ID: ${groupId}, Count: ${iconCount}`);
+				
+				// 收集所有图标信息
+				const iconInfos = [];
+				
+				// 解析每个GRPICONDIRENTRY (14字节)
+				for (let i = 0; i < iconCount && (6 + i * 14 + 14) <= groupBytes.length; i++) {
+					const entryOffset = 6 + i * 14;
+					const width = groupBytes[entryOffset] || 256; // 0表示256
+					const height = groupBytes[entryOffset + 1] || 256;
+					const colorCount = groupBytes[entryOffset + 2];
+					const reserved2 = groupBytes[entryOffset + 3];
+					const planes = groupBytes[entryOffset + 4] | (groupBytes[entryOffset + 5] << 8);
+					const bitCount = groupBytes[entryOffset + 6] | (groupBytes[entryOffset + 7] << 8);
+					const bytesInRes = groupBytes[entryOffset + 8] | (groupBytes[entryOffset + 9] << 8) | 
+									  (groupBytes[entryOffset + 10] << 16) | (groupBytes[entryOffset + 11] << 24);
+					const iconId = groupBytes[entryOffset + 12] | (groupBytes[entryOffset + 13] << 8);
+					
+					console.log(`[Icon Group ${groupIndex}] Entry ${i}: iconId=${iconId}, size=${width}x${height}, bits=${bitCount}`);
+					
+					// 查找对应的图标资源
+					const iconEntry = allIcons.find(icon => icon.id === iconId);
+					
+					if (iconEntry) {
+						iconInfos.push({
+							entry: iconEntry,
+							iconId: iconId,
+							width: width,
+							height: height,
+							bitCount: bitCount,
+							size: width * height // 用于排序
+						});
+					} else {
+						console.warn(`[Icon Group ${groupIndex}] Icon ${iconId} not found`);
+					}
+				}
+				
+				// 按尺寸从大到小排序
+				iconInfos.sort((a, b) => b.size - a.size);
+				
+				// 创建图标容器
+				const iconContainer = document.createElement('div');
+				iconContainer.style.display = 'flex';
+				iconContainer.style.flexWrap = 'wrap';
+				iconContainer.style.gap = '10px';
+				iconContainer.style.marginTop = '10px';
+				
+				// 显示排序后的图标
+				iconInfos.forEach((info, index) => {
+					showIconInContainerWithSize(info.entry, info.iconId, iconContainer, 
+						`${groupIndex}-${index}`, info.width, info.height, info.bitCount);
+				});
+				
+				peDetails.appendChild(iconContainer);
+			} catch (error) {
+				console.error(`[Icon Group ${groupIndex}] Parse error:`, error);
+			}
+		});
+	}
+	
+	// 特殊处理：字符串表显示
+	if (typeId === 6 && entries.length > 0) {
+		const stringTableTitle = document.createElement('h4');
+		stringTableTitle.textContent = '字符串内容';
+		stringTableTitle.style.marginTop = '20px';
+		peDetails.appendChild(stringTableTitle);
+		
+		try {
+			// 解析所有字符串表条目
+			const allStrings = [];
+			
+			entries.forEach((entry, entryIndex) => {
+				const blockId = typeof entry.id === 'number' ? entry.id : parseInt(String(entry.id).replace(/^#/, ''), 10);
+				
+				try {
+					/** @type {any} */
+					const entryData = entry.data;
+					const dataArray = entryData.data || entryData;
+					const stringData = parseStringTableBlock(dataArray, blockId);
+					
+					if (stringData && stringData.length > 0) {
+						allStrings.push(...stringData);
+					}
+				} catch (error) {
+					console.warn(`Failed to parse string table entry ${entryIndex}:`, error);
+				}
+			});
+			
+			if (allStrings.length > 0) {
+				// 按字符串ID排序
+				allStrings.sort((a, b) => a.id - b.id);
+				
+				// 创建自定义字符串表格（使用文本框显示内容）
+				const tableContainer = document.createElement('div');
+				tableContainer.style.marginTop = '10px';
+				
+				const table = document.createElement('table');
+				table.className = 'pe-string-table';
+				table.style.width = '100%';
+				table.style.borderCollapse = 'collapse';
+				table.style.marginBottom = '15px';
+				
+				// 表头
+				const thead = document.createElement('thead');
+				const headerRow = document.createElement('tr');
+				['ID', '长度', '内容'].forEach((header, index) => {
+					const th = document.createElement('th');
+					th.textContent = header;
+					th.style.cssText = 'padding: 4px 8px; text-align: left !important; font-weight: bold;';
+					th.style.borderBottom = '1px solid var(--vscode-panel-border)';
+					th.style.backgroundColor = 'var(--vscode-editorWidget-background)';
+					
+					if (index === 0) {
+						th.style.width = '60px'; // ID列固定宽度
+					} else if (index === 1) {
+						th.style.width = '80px'; // 长度列固定宽度
+					}
+					// 内容列不设置宽度，自动占满剩余空间
+					headerRow.appendChild(th);
+				});
+				thead.appendChild(headerRow);
+				table.appendChild(thead);
+				
+				// 表体
+				const tbody = document.createElement('tbody');
+				allStrings.forEach(str => {
+					const row = document.createElement('tr');
+					
+					// ID列
+					const idCell = document.createElement('td');
+					idCell.textContent = String(str.id);
+					idCell.className = 'pe-details-value';
+					idCell.style.width = '60px';
+					idCell.style.padding = '4px 8px';
+					idCell.style.borderBottom = '1px solid var(--vscode-panel-border)';
+					idCell.style.fontFamily = "'Courier New', monospace";
+					idCell.style.fontSize = '11px';
+					row.appendChild(idCell);
+					
+					// 长度列
+					const lengthCell = document.createElement('td');
+					lengthCell.textContent = String(str.length);
+					lengthCell.className = 'pe-details-value';
+					lengthCell.style.width = '80px';
+					lengthCell.style.padding = '4px 8px';
+					lengthCell.style.borderBottom = '1px solid var(--vscode-panel-border)';
+					lengthCell.style.fontFamily = "'Courier New', monospace";
+					lengthCell.style.fontSize = '11px';
+					row.appendChild(lengthCell);
+					
+					// 内容列（使用只读文本框）
+					const contentCell = document.createElement('td');
+					contentCell.style.padding = '4px 8px';
+					contentCell.style.borderBottom = '1px solid var(--vscode-panel-border)';
+					// 不设置width，让它自动占满剩余空间
+					const textInput = document.createElement('input');
+					textInput.type = 'text';
+					textInput.value = str.value || '(空字符串)';
+					textInput.readOnly = true;
+					textInput.style.width = '100%';
+					textInput.style.border = '1px solid var(--vscode-input-border)';
+					textInput.style.background = 'var(--vscode-input-background)';
+					textInput.style.color = 'var(--vscode-input-foreground)';
+					textInput.style.padding = '4px 8px';
+					textInput.style.fontSize = 'inherit';
+					textInput.style.fontFamily = 'inherit';
+					textInput.style.boxSizing = 'border-box';
+					contentCell.appendChild(textInput);
+					row.appendChild(contentCell);
+					
+					tbody.appendChild(row);
+				});
+				table.appendChild(tbody);
+				
+				// 添加标题
+				const title = document.createElement('h5');
+				title.textContent = `共 ${allStrings.length} 个字符串`;
+				title.style.marginBottom = '10px';
+				tableContainer.appendChild(title);
+				tableContainer.appendChild(table);
+				
+				peDetails.appendChild(tableContainer);
+			} else {
+				const emptyText = document.createElement('p');
+				emptyText.textContent = '⚠️ 未找到可解析的字符串';
+				emptyText.style.color = 'var(--vscode-descriptionForeground)';
+				peDetails.appendChild(emptyText);
+			}
+		} catch (error) {
+			const errorText = document.createElement('p');
+			errorText.textContent = '⚠️ 字符串表解析失败';
+			errorText.style.color = 'var(--vscode-errorForeground)';
+			peDetails.appendChild(errorText);
+			console.error('String table parse error:', error);
+		}
+	}
+	
+	// 特殊处理：版本信息显示
+		if (typeId === 16 && entries.length > 0) {
+			const versionTitle = document.createElement('h4');
+			versionTitle.textContent = '版本信息详情';
+			versionTitle.style.marginTop = '20px';
+			peDetails.appendChild(versionTitle);
+			
+			try {
+				/** @type {any} */
+				const entryData = entries[0].data;
+				const dataArray = entryData.data || entryData;
+				const versionData = parseVersionInfo(dataArray);
+				if (versionData) {
+					const versionRows = Object.entries(versionData).map(([key, value]) => [key, String(value)]);
+					peDetails.appendChild(createTable('版本信息字段', ['字段', '值'], versionRows, ['', 'pe-details-value']));
+				}
+			} catch (error) {
+				const errorText = document.createElement('p');
+				errorText.textContent = '⚠️ 版本信息解析失败';
+				errorText.style.color = 'var(--vscode-errorForeground)';
+				peDetails.appendChild(errorText);
+			}
+		}
+		
+		// 特殊处理：清单文件显示
+		if (typeId === 24 && entries.length > 0) {
+			const manifestTitle = document.createElement('h4');
+			manifestTitle.textContent = '清单内容';
+			manifestTitle.style.marginTop = '20px';
+			peDetails.appendChild(manifestTitle);
+			
+			const entry = entries[0];
+
+			// 使用TextDecoder解码清单文件内容
+			/** @type {any} */
+			const entryData = entry.data;
+			const dataArray = entryData.data || entryData;
+			const decoder = new TextDecoder('utf-8');
+			const manifestText = decoder.decode(new Uint8Array(dataArray));
+			
+			if (manifestText && manifestText.trim()) {
+				const pre = document.createElement('pre');
+				pre.style.backgroundColor = 'var(--vscode-textCodeBlock-background)';
+				pre.style.padding = '10px';
+				pre.style.borderRadius = '4px';
+				pre.style.overflow = 'auto';
+				pre.style.height = 'auto';
+			pre.style.minHeight = '200px';
+				pre.style.fontSize = '12px';
+				pre.style.whiteSpace = 'pre-wrap';
+				pre.style.wordBreak = 'break-all';
+				pre.textContent = manifestText;
+				peDetails.appendChild(pre);
+			} else {
+				const errorText = document.createElement('p');
+				errorText.textContent = '⚠️ 清单文件内容为空或无法解析';
+				errorText.style.color = 'var(--vscode-errorForeground)';
+				peDetails.appendChild(errorText);
+			}
+		}
+	}
+	
+	/**
+	 * 解析字符串表块
+	 * 字符串表资源的结构：每个块包含16个字符串（即使某些字符串为空）
+	 * 每个字符串以 WORD(2字节) 开头表示长度（字符数，不包括长度字段本身）
+	 * 然后是 UTF-16LE 编码的字符串数据
+	 * @param {Array<number>|Uint8Array} data - 字符串表块数据
+	 * @param {number} blockId - 块ID（用于计算字符串ID）
+	 * @returns {Array<{id: number, value: string, length: number}>} - 解析后的字符串数组
+	 */
+	function parseStringTableBlock(data, blockId) {
+		try {
+			const dataArray = Array.isArray(data) ? new Uint8Array(data) : data;
+			/** @type {Array<{id: number, value: string, length: number}>} */
+			const strings = [];
+			
+			// 每个字符串表块包含16个字符串
+			// blockId * 16 是该块中第一个字符串的ID
+			const baseStringId = (blockId - 1) * 16;
+			
+			let offset = 0;
+			for (let i = 0; i < 16 && offset < dataArray.length; i++) {
+				// 读取字符串长度（WORD，2字节，字符数）
+				if (offset + 2 > dataArray.length) {
+					break;
+				}
+				
+				const strLen = dataArray[offset] | (dataArray[offset + 1] << 8);
+				offset += 2;
+				
+				// 如果长度为0，说明这个位置没有字符串
+				if (strLen === 0) {
+					continue;
+				}
+				
+				// 读取字符串数据（UTF-16LE编码）
+				const strByteLen = strLen * 2; // 每个字符2字节
+				if (offset + strByteLen > dataArray.length) {
+					console.warn(`String ${baseStringId + i}: not enough data (need ${strByteLen}, have ${dataArray.length - offset})`);
+					break;
+				}
+				
+				const strBytes = dataArray.slice(offset, offset + strByteLen);
+				offset += strByteLen;
+				
+				// 解码字符串
+				const decoder = new TextDecoder('utf-16le');
+				const strValue = decoder.decode(strBytes);
+				
+				strings.push({
+					id: baseStringId + i,
+					value: strValue,
+					length: strLen
+				});
+			}
+			
+			return strings;
+		} catch (error) {
+			console.warn('Failed to parse string table block:', error);
+			return [];
+		}
+	}
+	
+	/**
+	 * 解析版本信息资源
+	 * @param {Array<number>|Uint8Array} data - 版本信息数据
+	 * @returns {Object | null} - 解析后的版本信息
+	 */
+	function parseVersionInfo(data) {
+		try {
+			// 简单的版本信息解析（仅解析字符串表）
+			// 如果是数组，转换为Uint8Array
+			const dataArray = Array.isArray(data) ? new Uint8Array(data) : data;
+			const decoder = new TextDecoder('utf-16le');
+			const text = decoder.decode(dataArray);
+			
+			/** @type {Record<string, string>} */
+			const versionInfo = {};
+			const fields = [
+				'CompanyName', 'FileDescription', 'FileVersion',
+				'InternalName', 'LegalCopyright', 'OriginalFilename',
+				'ProductName', 'ProductVersion'
+			];
+			
+		fields.forEach(field => {
+			const index = text.indexOf(field);
+			if (index !== -1) {
+				// 跳过字段名,然后找到第一个非空字符作为值的开始
+				let valueStart = index + field.length;
+				// 跳过字段名后的空字符(可能有多个\0和空格)
+				while (valueStart < text.length && (text[valueStart] === '\0' || text[valueStart] === ' ' || text[valueStart] === '\t')) {
+					valueStart++;
+				}
+				
+				// 找到值的结束位置(下一个\0)
+				let valueEnd = text.indexOf('\0', valueStart);
+				if (valueEnd === -1) {
+					valueEnd = text.length;
+				}
+				
+				const value = text.substring(valueStart, valueEnd).replace(/\0/g, '').trim();
+				if (value) {
+					versionInfo[field] = value;
+				}
+			}
+		});			return Object.keys(versionInfo).length > 0 ? versionInfo : null;
+		} catch (error) {
+			console.warn('Failed to parse version info:', error);
+			return null;
+		}
+	}
+
+	// 发出 webview 已准备好的信号
+	vscode.postMessage({ type: 'ready' });
+})();
+
+
+

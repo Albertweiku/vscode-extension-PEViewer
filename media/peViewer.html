@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="zh-cn">
+<head>
+	<meta charset="UTF-8">
+	<!--
+	Use a content security policy to only allow loading images from https or from our extension directory,
+	and only allow scripts that have a specific nonce.
+	-->
+	<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${webview.cspSource} blob: data:; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}';">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+	<link href="${styleResetUri}" rel="stylesheet" />
+	<link href="${styleVSCodeUri}" rel="stylesheet" />
+	<link href="${styleMainUri}" rel="stylesheet" />
+
+	<title>PEViewer - PE File Viewer</title>
+</head>
+<body>
+	<div class="pe-editor-container">
+		<div class="pe-sidebar">
+			<div class="pe-tree-header">PEViewer - PE文件结构</div>
+			<div class="pe-tree" id="peTree">
+				<!-- PE文件结构树 -->
+				<details class="pe-tree-group">
+					<summary class="pe-tree-item" data-item="pe_header">📁 PE头部</summary>
+					<div class="pe-tree-children">
+					<div class="pe-tree-item pe-tree-leaf" data-item="dos_header">📄 DOS头部</div>
+					<div class="pe-tree-item pe-tree-leaf" data-item="coff_header">📄 COFF头部</div>
+					<div class="pe-tree-item pe-tree-leaf" data-item="optional_header">📄 可选头部</div>
+					<div class="pe-tree-item pe-tree-leaf" data-item="data_directory">📄 数据目录</div>
+					<details class="pe-tree-group" style="margin-left: -5px;">
+						<summary class="pe-tree-item" data-item="sections">📂 区段头部</summary>
+						<div class="pe-tree-children"><!-- 区段列表将由JavaScript动态生成 --></div>
+					</details>
+				</div>
+				</details>
+				
+				<div class="pe-tree-item pe-tree-top-level" data-item="exports" style="display: none;">📤 导出函数 <span class="pe-tree-count" id="exportCount">(0)</span></div>
+				
+			<details class="pe-tree-group" style="display: none;">
+				<summary class="pe-tree-item" data-item="imports">📥 导入函数 <span class="pe-tree-count" id="importCount">(0)</span></summary>
+				<div class="pe-tree-children" id="importsList">
+						<!-- 导入的DLL列表将通过JavaScript动态生成 -->
+					</div>
+				</details>
+				
+			<details class="pe-tree-group" style="display: none;">
+				<summary class="pe-tree-item" data-item="resources">🎨 资源 <span class="pe-tree-count" id="resourceCount">(0)</span></summary>
+				<div class="pe-tree-children" id="resourcesList">
+						<!-- 资源列表将通过JavaScript动态生成 -->
+					</div>
+				</details>
+			</div>
+		</div>
+		<div class="pe-content">
+			<div class="pe-details-header">
+				<span id="detailsTitle">详细信息</span>
+			</div>
+			<div class="pe-details" id="peDetails">
+				<!-- 详细信息将通过JavaScript动态生成 -->
+			</div>
+		</div>
+	</div>
+
+	<!-- 模板区域 -->
+	<template id="tmpl-import-dll-item">
+		<div class="pe-tree-item pe-tree-leaf" data-item="" data-dll="">
+			📚 <span class="dll-name"></span> <span class="pe-tree-count"></span>
+		</div>
+	</template>
+	
+	<template id="tmpl-resource-type-item">
+		<div class="pe-tree-item pe-tree-leaf" data-item="" data-resource-type="">
+			📦 <span class="resource-type-name"></span> <span class="pe-tree-count"></span>
+		</div>
+	</template>
+
+	<template id="tmpl-table-basic">
+		<div class="pe-details-section">
+			<h4 class="section-title"></h4>
+			<table class="pe-details-table">
+				<thead class="table-head"></thead>
+				<tbody class="table-body"></tbody>
+			</table>
+		</div>
+	</template>
+
+	<template id="tmpl-table-row">
+		<tr></tr>
+	</template>
+
+	<template id="tmpl-empty-message">
+		<div class="pe-details-section">
+			<p class="empty-message"></p>
+		</div>
+	</template>
+
+	<script nonce="${nonce}" src="${scriptUri}"></script>
+</body>
+</html>

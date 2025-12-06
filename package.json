@@ -1,0 +1,96 @@
+{
+  "name": "peviewer",
+  "displayName": "PEViewer",
+  "description": "PE file structure viewer and analyzer",
+  "version": "0.0.251206",
+  "engines": {
+    "vscode": "^1.106.1"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "languages": [
+      {
+        "id": "pe",
+        "aliases": [
+          "PE",
+          "Portable Executable"
+        ],
+        "extensions": [
+          ".exe",
+          ".dll",
+          ".ocx",
+          ".sys",
+          ".scr",
+          ".drv",
+          ".cpl"
+        ]
+      }
+    ],
+    "customEditors": [
+      {
+        "viewType": "peviewer.peViewer",
+        "displayName": "PEViewer",
+        "selector": [
+          {
+            "filenamePattern": "*.exe"
+          },
+          {
+            "filenamePattern": "*.dll"
+          },
+          {
+            "filenamePattern": "*.ocx"
+          },
+          {
+            "filenamePattern": "*.sys"
+          },
+          {
+            "filenamePattern": "*.scr"
+          },
+          {
+            "filenamePattern": "*.drv"
+          },
+          {
+            "filenamePattern": "*.cpl"
+          }
+        ]
+      }
+    ],
+    "commands": [
+      {
+        "command": "peviewer.helloWorld",
+        "title": "Hello World"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run package",
+    "compile": "webpack",
+    "watch": "webpack --watch",
+    "package": "webpack --mode production --devtool hidden-source-map",
+    "compile-tests": "tsc -p . --outDir out",
+    "watch-tests": "tsc -p . -w --outDir out",
+    "pretest": "npm run compile-tests && npm run compile && npm run lint",
+    "lint": "eslint src",
+    "test": "vscode-test"
+  },
+  "devDependencies": {
+    "@types/mocha": "^10.0.10",
+    "@types/node": "22.x",
+    "@types/vscode": "^1.106.1",
+    "@vscode/test-cli": "^0.0.12",
+    "@vscode/test-electron": "^2.5.2",
+    "eslint": "^9.39.1",
+    "ts-loader": "^9.5.4",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.46.3",
+    "webpack": "^5.102.1",
+    "webpack-cli": "^6.0.1"
+  },
+  "dependencies": {
+    "pe-parser": "^1.0.11"
+  }
+}
