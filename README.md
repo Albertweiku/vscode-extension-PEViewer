@@ -1,3 +1,5 @@
+**[中文版本 (Chinese Version)](README.zh-cn.md)**
+
 # PEViewer - PE File Viewer
 
 A VS Code extension for viewing and analyzing Windows PE (Portable Executable) file structures.
@@ -6,7 +8,6 @@ A VS Code extension for viewing and analyzing Windows PE (Portable Executable) f
 
 ![PEViewer Screenshot](https://raw.githubusercontent.com/easyatm/vscode-extension-PEViewer/main/media/ScreenShot_2025-12-07_010545_842.png)
 
-**[中文版本 (Chinese Version)](README.zh-cn.md)**
 
 ## Features
 
