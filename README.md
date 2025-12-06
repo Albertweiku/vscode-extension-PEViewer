@@ -2,6 +2,8 @@
 
 一个专门用于查看和分析Windows PE（Portable Executable）文件结构的VS Code扩展。
 
+![PEViewer界面截图](https://raw.githubusercontent.com/your-username/vscode-extension-PEViewer/main/media/ScreenShot_2025-12-07_010545_842.png)
+
 ## 功能特性
 
 - 📁 **结构化视图**：以树形结构展示PE文件的各个组成部分
@@ -106,23 +108,14 @@ npm run watch
 - 📊 支持导入/导出表解析
 - 🎨 VS Code主题集成
 
+## 安装
+
+在VS Code扩展市场中搜索 **PEViewer** 并安装。
+
+## 多语言支持
+
+支持中文和英文界面，自动适配VS Code语言设置。
+
 ## 许可证
 
 MIT
-
----
-
-## 反馈与贡献
-
-如果您发现问题或有改进建议，欢迎提交Issue或Pull Request！
-
-* Split the editor (`Cmd+\` on macOS or `Ctrl+\` on Windows and Linux).
-* Toggle preview (`Shift+Cmd+V` on macOS or `Shift+Ctrl+V` on Windows and Linux).
-* Press `Ctrl+Space` (Windows, Linux, macOS) to see a list of Markdown snippets.
-
-## For more information
-
-* [Visual Studio Code's Markdown Support](http://code.visualstudio.com/docs/languages/markdown)
-* [Markdown Syntax Reference](https://help.github.com/articles/markdown-basics/)
-
-**Enjoy!**

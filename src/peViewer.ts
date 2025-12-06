@@ -145,7 +145,9 @@ class PEDocument extends Disposable implements vscode.CustomDocument {
             let namePos = nameOffset;
             while (namePos < fileData.length) {
                 const char = fileData.readUInt8(namePos);
-                if (char === 0) break;
+                if (char === 0) {
+                    break;
+                }
                 dllName += String.fromCharCode(char);
                 namePos++;
             }
@@ -625,6 +627,7 @@ export class PEEditorProvider implements vscode.CustomEditorProvider<PEDocument>
                     this.postMessage(webviewPanel, "init", {
                         untitled: true,
                         editable: true,
+                        language: vscode.env.language,
                     });
                 } else {
                     const editable = vscode.workspace.fs.isWritableFileSystem(document.uri.scheme);
@@ -632,6 +635,7 @@ export class PEEditorProvider implements vscode.CustomEditorProvider<PEDocument>
                     this.postMessage(webviewPanel, "init", {
                         value: JSON.parse(JSON.stringify(document.parsedData, (key, value) => (typeof value === "bigint" ? value.toString() : value))),
                         editable,
+                        language: vscode.env.language,
                     });
                 }
             }
@@ -719,6 +723,7 @@ export class PEEditorProvider implements vscode.CustomEditorProvider<PEDocument>
     private getHtmlForWebview(webview: vscode.Webview): string {
         // Local path to script and css for the webview
         const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(this._context.extensionUri, "media", "peViewer.js"));
+        const localesUri = webview.asWebviewUri(vscode.Uri.joinPath(this._context.extensionUri, "media", "locales.js"));
 
         const styleResetUri = webview.asWebviewUri(vscode.Uri.joinPath(this._context.extensionUri, "media", "reset.css"));
 
@@ -741,6 +746,7 @@ export class PEEditorProvider implements vscode.CustomEditorProvider<PEDocument>
             .replace(/\$\{styleResetUri\}/g, styleResetUri.toString())
             .replace(/\$\{styleVSCodeUri\}/g, styleVSCodeUri.toString())
             .replace(/\$\{styleMainUri\}/g, styleMainUri.toString())
+            .replace(/\$\{localesUri\}/g, localesUri.toString())
             .replace(/\$\{scriptUri\}/g, scriptUri.toString());
     }
 }
