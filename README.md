@@ -2,7 +2,11 @@
 
 A VS Code extension for viewing and analyzing Windows PE (Portable Executable) file structures.
 
-![PEViewer Screenshot](media/ScreenShot_2025-12-07_010545_842.png)
+> **Note**: This extension was developed by GitHub Copilot.
+
+![PEViewer Screenshot](https://raw.githubusercontent.com/easyatm/vscode-extension-PEViewer/main/media/ScreenShot_2025-12-07_010545_842.png)
+
+**[中文版本 (Chinese Version)](README.zh-cn.md)**
 
 ## Features
 
@@ -19,7 +23,7 @@ A VS Code extension for viewing and analyzing Windows PE (Portable Executable) f
 
 1. Install this extension
 2. Open a PE file (like .exe or .dll) in VS Code
-3. Right-click the file and select **"Open With"** > **"PEViewer"**
+3. Right-click the file and select **"Open With"** > **"code"**
 4. Click on various nodes in the left tree view to see detailed information
 
 ## Supported File Types

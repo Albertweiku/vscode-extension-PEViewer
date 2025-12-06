@@ -5,7 +5,7 @@
   "version": "0.0.251206",
   "repository": {
     "type": "git",
-    "url": "https://github.com/your-username/vscode-extension-PEViewer"
+    "url": "https://github.com/easyatm/vscode-extension-PEViewer"
   },
   "engines": {
     "vscode": "^1.106.1"

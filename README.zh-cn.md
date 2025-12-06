@@ -2,7 +2,9 @@
 
 一个专门用于查看和分析Windows PE（Portable Executable）文件结构的VS Code扩展。
 
-![PEViewer界面截图](media/ScreenShot_2025-12-07_010545_842.png)
+> **说明**：此扩展由GitHub Copilot开发。
+
+![PEViewer界面截图](https://raw.githubusercontent.com/easyatm/vscode-extension-PEViewer/main/media/ScreenShot_2025-12-07_010545_842.png)
 
 ## 功能特性
 
@@ -19,7 +21,7 @@
 
 1. 安装此扩展
 2. 在VS Code中打开PE文件（如.exe或.dll）
-3. 右键点击文件，选择 **"Open With"** > **"PEViewer"**
+3. 右键点击文件，选择 **"Open With"** > **"code"**
 4. 在左侧树形视图中点击各个节点查看详细信息
 
 ## 支持的文件类型
