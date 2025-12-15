@@ -619,6 +619,8 @@ const locales = {
 		'addressRVA': 'Address (RVA)',
 		'decodedFunctionName': 'Function Name (Decoded)',
 		'originalFunctionName': 'Original Function Name',
+		'searchExports': 'Search exports...',
+		'searchPlaceholder': 'Search exports...',
 		'resourceSectionInfo': 'Resource Section Info',
 		'field': 'Field',
 		'value': 'Value',

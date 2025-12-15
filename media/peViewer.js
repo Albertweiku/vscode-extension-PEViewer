@@ -556,6 +556,7 @@
         }
 
         // 默认显示
+        hideSearchBox();
         detailsTitle.textContent = t("detailsTitle");
         showEmptyMessage(t("selectItemMessage"));
     }
@@ -564,6 +565,8 @@
         if (!parsedData || !peDetails || !detailsTitle) {
             return;
         }
+
+        hideSearchBox();
 
         // 检测位数
         let is64Bit = false;
@@ -658,6 +661,8 @@
             return;
         }
 
+        hideSearchBox();
+
         detailsTitle.textContent = t("dosHeaderDetails");
         peDetails.innerHTML = "";
 
@@ -676,6 +681,8 @@
         if (!parsedData || !parsedData.nt_headers || !parsedData.nt_headers.FileHeader || !peDetails || !detailsTitle) {
             return;
         }
+
+        hideSearchBox();
 
         detailsTitle.textContent = t("coffHeaderDetails");
         peDetails.innerHTML = "";
@@ -696,6 +703,8 @@
             return;
         }
 
+        hideSearchBox();
+
         detailsTitle.textContent = t("optionalHeaderDetails");
         peDetails.innerHTML = "";
 
@@ -714,6 +723,8 @@
         if (!parsedData || !parsedData.nt_headers || !parsedData.nt_headers.OptionalHeader || !peDetails || !detailsTitle) {
             return;
         }
+
+        hideSearchBox();
 
         const dataDir = /** @type {any} */ (parsedData.nt_headers.OptionalHeader).DataDirectory;
         if (!dataDir) {
@@ -741,6 +752,8 @@
             return;
         }
 
+        hideSearchBox();
+
         detailsTitle.textContent = `${t("sectionsList")} (${t("totalSections").replace("{count}", parsedData.sections.length)})`;
         peDetails.innerHTML = "";
 
@@ -759,6 +772,8 @@
         if (!parsedData || !parsedData.sections || !peDetails || !detailsTitle) {
             return;
         }
+
+        hideSearchBox();
 
         const section = parsedData.sections.find((/** @type {Section} */ s) => {
             const name = s.Name ? s.Name.replace(/\0/g, "") : "";
@@ -793,6 +808,7 @@
         if (!parsedData.exports || !parsedData.exports.functions || parsedData.exports.functions.length === 0) {
             detailsTitle.textContent = t("exportsTitle");
             showEmptyMessage(t("noExportsFound"));
+            hideSearchBox();
             return;
         }
 
@@ -811,6 +827,229 @@
         });
 
         peDetails.appendChild(createTable(t("exportFunctionsList"), [t("ordinal"), t("addressRVA"), t("decodedFunctionName"), t("originalFunctionName")], exportRows, ["pe-details-value", "pe-details-hex", "pe-details-value", "pe-details-value"]));
+
+        // 显示搜索框
+        showSearchBox();
+    }
+
+    // 搜索相关变量
+    /** @type {HTMLTableRowElement[]} */
+    let currentSearchMatches = [];
+    let currentSearchIndex = -1;
+
+    /**
+     * 显示搜索框
+     */
+    function showSearchBox() {
+      const searchContainer = document.getElementById('searchContainer');
+      const searchInput = /** @type {HTMLInputElement | null} */ (
+          document.getElementById('searchInput'));
+
+      if (searchContainer) {
+        searchContainer.style.display = 'flex';
+      }
+
+      if (searchInput) {
+        // 设置本地化的placeholder
+        searchInput.placeholder = t('searchPlaceholder');
+
+        // 清空之前的搜索
+        searchInput.value = '';
+        currentSearchMatches = [];
+        currentSearchIndex = -1;
+        updateSearchCount();
+
+        // 绑定搜索事件（使用节流避免频繁搜索）
+        searchInput.removeEventListener('input', handleSearchInput);
+        searchInput.addEventListener('input', handleSearchInput);
+
+        // 支持Enter键跳转到下一个匹配
+        searchInput.removeEventListener('keydown', handleSearchKeydown);
+        searchInput.addEventListener('keydown', handleSearchKeydown);
+      }
+    }
+
+    /**
+     * 隐藏搜索框
+     */
+    function hideSearchBox() {
+      const searchContainer = document.getElementById('searchContainer');
+      if (searchContainer) {
+        searchContainer.style.display = 'none';
+      }
+      clearSearchHighlights();
+    }
+
+    /**
+     * 处理搜索输入
+     */
+    /** @type {any} */
+    let searchTimeout = null;
+    function handleSearchInput() {
+      if (searchTimeout) {
+        clearTimeout(searchTimeout);
+      }
+
+      searchTimeout = setTimeout(() => {
+        performSearch();
+      }, 300);  // 300ms防抖
+    }
+
+    /**
+     * 处理搜索快捷键
+     * @param {KeyboardEvent} e
+     */
+    function handleSearchKeydown(e) {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        if (e.shiftKey) {
+          // Shift+Enter: 上一个匹配
+          navigateSearchResults(-1);
+        } else {
+          // Enter: 下一个匹配
+          navigateSearchResults(1);
+        }
+      } else if (e.key === 'Escape') {
+        // Esc: 清空搜索
+        const searchInput = /** @type {HTMLInputElement | null} */ (
+            document.getElementById('searchInput'));
+        if (searchInput) {
+          searchInput.value = '';
+          performSearch();
+        }
+      }
+    }
+
+    /**
+     * 执行搜索
+     */
+    function performSearch() {
+      const searchInput = /** @type {HTMLInputElement | null} */ (
+          document.getElementById('searchInput'));
+      if (!searchInput) {
+        return;
+      }
+
+      const searchText = searchInput.value.trim().toLowerCase();
+
+      // 清除之前的高亮
+      clearSearchHighlights();
+      currentSearchMatches = [];
+      currentSearchIndex = -1;
+
+      if (!searchText) {
+        updateSearchCount();
+        return;
+      }
+
+      // 搜索表格行
+      const table = peDetails?.querySelector('.pe-details-table');
+      if (!table) {
+        updateSearchCount();
+        return;
+      }
+
+        const rows = table.querySelectorAll('tbody tr');
+        rows.forEach((row, index) => {
+          const cells = row.querySelectorAll('td');
+          let matched = false;
+
+          // 搜索所有单元格内容
+          cells.forEach(cell => {
+            const text = cell.textContent?.toLowerCase() || '';
+            if (text.includes(searchText)) {
+              matched = true;
+            }
+          });
+
+          if (matched) {
+            row.classList.add('highlight');
+            const tableRow = /** @type {HTMLTableRowElement} */ (row);
+            currentSearchMatches.push(tableRow);
+          }
+        });      // 如果有匹配结果，高亮第一个
+      if (currentSearchMatches.length > 0) {
+        currentSearchIndex = 0;
+        highlightCurrentMatch();
+      }
+
+      updateSearchCount();
+    }
+
+    /**
+     * 清除搜索高亮
+     */
+    function clearSearchHighlights() {
+      const table = peDetails?.querySelector('.pe-details-table');
+      if (!table) {
+        return;
+      }
+
+      const rows = table.querySelectorAll('tbody tr');
+      rows.forEach(row => {
+        row.classList.remove('highlight', 'highlight-current');
+      });
+    }
+
+    /**
+     * 高亮当前匹配项
+     */
+    function highlightCurrentMatch() {
+      if (currentSearchIndex < 0 ||
+          currentSearchIndex >= currentSearchMatches.length) {
+        return;
+      }
+
+      // 移除之前的当前高亮
+      currentSearchMatches.forEach(row => {
+        row.classList.remove('highlight-current');
+      });
+
+      // 添加当前高亮
+      const currentRow = currentSearchMatches[currentSearchIndex];
+      currentRow.classList.add('highlight-current');
+
+      // 滚动到可见区域
+      currentRow.scrollIntoView({behavior: 'smooth', block: 'center'});
+    }
+
+    /**
+     * 导航搜索结果
+     * @param {number} direction - 1表示下一个，-1表示上一个
+     */
+    function navigateSearchResults(direction) {
+      if (currentSearchMatches.length === 0) {
+        return;
+      }
+
+      currentSearchIndex += direction;
+
+      // 循环导航
+      if (currentSearchIndex >= currentSearchMatches.length) {
+        currentSearchIndex = 0;
+      } else if (currentSearchIndex < 0) {
+        currentSearchIndex = currentSearchMatches.length - 1;
+      }
+
+      highlightCurrentMatch();
+      updateSearchCount();
+    }
+
+    /**
+     * 更新搜索计数显示
+     */
+    function updateSearchCount() {
+      const searchCount = document.getElementById('searchCount');
+      if (!searchCount) {
+        return;
+      }
+
+      if (currentSearchMatches.length === 0) {
+        searchCount.textContent = '';
+      } else {
+        searchCount.textContent =
+            `${currentSearchIndex + 1} / ${currentSearchMatches.length}`;
+      }
     }
 
     /**
@@ -1327,6 +1566,7 @@
         if (!parsedData.imports || parsedData.imports.length === 0) {
             detailsTitle.textContent = t("importsTitle");
             showEmptyMessage(t("noImportsFound"));
+            hideSearchBox();
             return;
         }
 
@@ -1355,6 +1595,9 @@
         const funcRows = allFunctions.map((func) => [func.dll, func.name, func.type]);
 
         peDetails.appendChild(createTable(t("allImportFunctions"), [t("dllColumn"), t("functionNameColumn"), t("typeColumn")], funcRows, ["pe-details-value", "pe-details-value", "pe-details-value"]));
+
+        // 显示搜索框
+        showSearchBox();
     }
 
     /**
@@ -1371,6 +1614,7 @@
 
         if (!dll.functions || dll.functions.length === 0) {
             showEmptyMessage(`${dll.name} ${t("noImportsFound").toLowerCase()}`);
+            hideSearchBox();
             return;
         }
 
@@ -1380,6 +1624,9 @@
         });
 
         peDetails.appendChild(createTable(t("functionsImportedByDll").replace("{dllName}", dll.name), [t("dllColumn"), t("functionNameColumn"), t("typeColumn")], funcRows, ["pe-details-value", "pe-details-value", "pe-details-value"]));
+
+        // 显示搜索框
+        showSearchBox();
     }
 
     /**
@@ -1446,6 +1693,8 @@
         if (!parsedData || !peDetails || !detailsTitle) {
             return;
         }
+
+        hideSearchBox();
 
         detailsTitle.textContent = t("resourceOverview");
         peDetails.innerHTML = "";
@@ -1699,6 +1948,8 @@
         if (!parsedData || !peDetails || !detailsTitle) {
             return;
         }
+
+        hideSearchBox();
 
         const typeId = Number(resourceType);
 

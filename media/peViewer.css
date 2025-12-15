@@ -123,6 +123,64 @@ body {
 	border-bottom: 1px solid var(--vscode-panel-border);
 	background-color: var(--vscode-titleBar-activeBackground);
 	color: var(--vscode-titleBar-activeForeground);
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 15px;
+	min-height: 40px;
+}
+
+.pe-details-header > span:first-child {
+	flex: 1 1 auto;
+	min-width: 0;
+	max-width: calc(100% - 270px);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.pe-search-container {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	flex: 0 0 auto;
+	flex-shrink: 0;
+	min-width: 250px;
+}
+
+.pe-search-input {
+	padding: 4px 8px;
+	font-size: 12px;
+	background-color: var(--vscode-input-background);
+	color: var(--vscode-input-foreground);
+	border: 1px solid var(--vscode-input-border);
+	border-radius: 3px;
+	outline: none;
+	min-width: 200px;
+	transition: border-color 0.2s;
+}
+
+.pe-search-input:focus {
+	border-color: var(--vscode-focusBorder);
+}
+
+.pe-search-input::placeholder {
+	color: var(--vscode-input-placeholderForeground);
+}
+
+.pe-search-count {
+	font-size: 11px;
+	color: var(--vscode-descriptionForeground);
+	white-space: nowrap;
+}
+
+.pe-details-table tr.highlight {
+	background-color: var(--vscode-editor-findMatchHighlightBackground);
+}
+
+.pe-details-table tr.highlight-current {
+	background-color: var(--vscode-editor-findMatchBackground);
+	border: 1px solid var(--vscode-editor-findMatchBorder);
 }
 
 .pe-details {
