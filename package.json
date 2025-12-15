@@ -2,7 +2,7 @@
   "name": "peviewer",
   "displayName": "PEViewer",
   "description": "PE file structure viewer and analyzer",
-  "version": "0.0.251206",
+  "version": "1.0.251206",
   "publisher": "Albertweiku",
   "license": "MIT",
   "repository": {
