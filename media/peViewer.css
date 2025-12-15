@@ -250,10 +250,92 @@ body {
 .pe-details-table td {
 	font-family: 'Courier New', monospace;
 	font-size: 11px;
+}
+
+/* 导出函数表格容器 */
+.export-table-container {
+	overflow-x: auto;
+	overflow-y: auto;
+	max-height: calc(100vh - 200px);
+	margin-bottom: 0;
+}
+
+.export-table-container .pe-details-table {
+	table-layout: fixed;
+	width: 100%;
+}
+
+/* 导出函数表格列宽 */
+.export-table-container .pe-details-table tr th:nth-child(1),
+.export-table-container .pe-details-table tr td:nth-child(1) {
+	width: 80px !important;
+	min-width: 80px !important;
+}
+
+.export-table-container .pe-details-table tr th:nth-child(2),
+.export-table-container .pe-details-table tr td:nth-child(2) {
+	width: 120px !important;
+	min-width: 120px !important;
+}
+
+.export-table-container .pe-details-table tr th:nth-child(3),
+.export-table-container .pe-details-table tr td:nth-child(3) {
+	width: 40%;
+	min-width: 200px;
+}
+
+.export-table-container .pe-details-table tr th:nth-child(4),
+.export-table-container .pe-details-table tr td:nth-child(4) {
+	width: 40%;
+	min-width: 200px;
+}
+
+/* 函数名列样式 */
+.export-table-container .pe-details-table tr td:nth-child(3),
+.export-table-container .pe-details-table tr td:nth-child(4) {
 	word-break: break-all;
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
+	white-space: normal;
+	overflow-wrap: anywhere;
+}
+
+/* 导入函数表格容器 */
+.import-table-container {
+	overflow-x: auto;
+	overflow-y: auto;
+	max-height: calc(100vh - 200px);
+	margin-bottom: 0;
+}
+
+.import-table-container .pe-details-table {
+	table-layout: fixed;
+	width: 100%;
+}
+
+/* 导入函数表格列宽 */
+.import-table-container .pe-details-table tr th:nth-child(1),
+.import-table-container .pe-details-table tr td:nth-child(1) {
+	width: 30%;
+	min-width: 150px;
+}
+
+.import-table-container .pe-details-table tr th:nth-child(2),
+.import-table-container .pe-details-table tr td:nth-child(2) {
+	width: 50%;
+	min-width: 200px;
+}
+
+.import-table-container .pe-details-table tr th:nth-child(3),
+.import-table-container .pe-details-table tr td:nth-child(3) {
+	width: 20%;
+	min-width: 100px;
+}
+
+/* 导入函数名列样式 */
+.import-table-container .pe-details-table tr td:nth-child(1),
+.import-table-container .pe-details-table tr td:nth-child(2) {
+	word-break: break-all;
+	white-space: normal;
+	overflow-wrap: anywhere;
 }
 
 .pe-details-value {
