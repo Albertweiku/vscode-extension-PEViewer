@@ -341,203 +341,8 @@
       return;
     }
 
-    // 更新导出函数计数并控制显示/隐藏
-    const exportCount = document.getElementById("exportCount");
-    const exportsItem = document.querySelector('[data-item="exports"]');
-    if (exportCount) {
-      const count =
-        parsedData.exports && parsedData.exports.functions
-          ? parsedData.exports.functions.length
-          : 0;
-      exportCount.textContent = `(${count})`;
-      if (exportsItem) {
-        const exportElement = /** @type {HTMLElement} */ (exportsItem);
-        if (count === 0) {
-          exportElement.style.display = "none";
-        } else {
-          exportElement.style.display = "";
-        }
-      }
-    } // 动态生成导入DLL列表
-    const importsList = document.getElementById("importsList");
-    const importCount = document.getElementById("importCount");
-    const importsGroup = importsList?.closest("details.pe-tree-group");
-    let totalImportFunctions = 0;
-
-    if (
-      importsList &&
-      parsedData.imports &&
-      parsedData.imports.length > 0 &&
-      templates.importDllItem
-    ) {
-      importsList.innerHTML = "";
-      parsedData.imports.forEach(
-        (/** @type {ImportDLL} */ dll, /** @type {number} */ index) => {
-          const funcCount = dll.functions ? dll.functions.length : 0;
-          totalImportFunctions += funcCount;
-
-          // 使用模板创建元素
-          if (!templates.importDllItem) {
-            return;
-          }
-          const clone = /** @type {DocumentFragment} */ (
-            templates.importDllItem.content.cloneNode(true)
-          );
-          const item = clone.querySelector(".pe-tree-item");
-          if (item) {
-            item.setAttribute("data-item", `imports.${index}`);
-            item.setAttribute("data-dll", dll.name);
-            const nameSpan = item.querySelector(".dll-name");
-            const countSpan = item.querySelector(".pe-tree-count");
-            if (nameSpan) {
-              nameSpan.textContent = dll.name;
-            }
-            if (countSpan) {
-              countSpan.textContent = `(${funcCount})`;
-            }
-          }
-          importsList.appendChild(clone);
-        },
-      );
-    }
-
-    // 更新导入函数总数并控制显示/隐藏
-    if (importCount) {
-      importCount.textContent = `(${totalImportFunctions})`;
-    }
-    if (importsGroup) {
-      const importElement = /** @type {HTMLElement} */ (importsGroup);
-      if (totalImportFunctions === 0) {
-        importElement.style.display = "none";
-      } else {
-        importElement.style.display = "";
-      }
-    } // 动态生成区段列表
-    const sectionsList = document
-      .querySelector('[data-item="sections"]')
-      ?.parentElement?.querySelector(".pe-tree-children");
-    if (sectionsList && parsedData.sections && parsedData.sections.length > 0) {
-      sectionsList.innerHTML = "";
-      parsedData.sections.forEach((section) => {
-        const sectionName = section.Name
-          ? section.Name.replace(/\0/g, "").trim()
-          : "";
-        if (sectionName) {
-          const sectionItem = document.createElement("div");
-          sectionItem.className = "pe-tree-item pe-tree-leaf";
-          sectionItem.setAttribute("data-item", `section_${sectionName}`);
-          sectionItem.textContent = `📄 ${sectionName}`;
-          sectionsList.appendChild(sectionItem);
-        }
-      });
-    }
-
-    // 动态生成资源类型列表
-    const resourcesList = document.getElementById("resourcesList");
-    const resourceCount = document.getElementById("resourceCount");
-    let totalResources = 0; // 在外部声明以便后续访问
-
-    if (resourcesList && templates.resourceTypeItem) {
-      resourcesList.innerHTML = "";
-
-      // 检查是否有资源数据
-      if (
-        parsedData.resources &&
-        Object.keys(parsedData.resources).length > 0
-      ) {
-        // 定义资源类型映射
-        /** @type {Record<number, {id: string, name: string, icon: string}>} */
-        const resourceTypeMap = {
-          1: { id: "RT_CURSOR", name: t("cursor"), icon: "🖱️" },
-          2: { id: "RT_BITMAP", name: t("bitmap"), icon: "🎨" },
-          3: { id: "RT_ICON", name: t("icon"), icon: "🖼️" },
-          4: { id: "RT_MENU", name: t("menu"), icon: "📋" },
-          5: { id: "RT_DIALOG", name: t("dialog"), icon: "💬" },
-          6: { id: "RT_STRING", name: t("stringTable"), icon: "📝" },
-          9: { id: "RT_ACCELERATOR", name: t("accelerator"), icon: "⌨️" },
-          10: { id: "RT_RCDATA", name: t("rcData"), icon: "📦" },
-          12: { id: "RT_GROUP_CURSOR", name: t("cursorGroup"), icon: "🖱️" },
-          14: { id: "RT_GROUP_ICON", name: t("iconGroup"), icon: "🖼️" },
-          16: { id: "RT_VERSION", name: t("version"), icon: "ℹ️" },
-          24: { id: "RT_MANIFEST", name: t("manifest"), icon: "📄" },
-        };
-
-        // 只添加实际存在的资源类型
-        /** @type {Record<number, {id: string, name: string, icon: string}>} */
-        const resourceTypeMapTyped = resourceTypeMap;
-
-        if (!parsedData || !parsedData.resources) {
-          return;
-        }
-        Object.keys(parsedData.resources)
-          .sort((a, b) => Number(a) - Number(b))
-          .forEach((typeNum) => {
-            if (!parsedData || !parsedData.resources) {
-              return;
-            }
-            const typeId = Number(typeNum);
-
-            // 跳过单独的图标类型(type=3),它们将作为图标组的子项显示
-            if (typeId === 3) {
-              return;
-            }
-
-            const entries = parsedData.resources[typeId];
-            const count = entries ? entries.length : 0;
-            totalResources += count;
-
-            const resType = resourceTypeMapTyped[typeId] || {
-              id: `RT_${typeId}`,
-              name: `资源类型 ${typeId}`,
-              icon: "📦",
-            };
-
-            if (!templates.resourceTypeItem) {
-              return;
-            }
-            const clone = /** @type {DocumentFragment} */ (
-              templates.resourceTypeItem.content.cloneNode(true)
-            );
-            const item = clone.querySelector(".pe-tree-item");
-            if (item) {
-              item.setAttribute("data-item", `resources.${typeId}`);
-              item.setAttribute("data-resource-type", String(typeId));
-              const nameSpan = item.querySelector(".resource-type-name");
-              const countSpan = item.querySelector(".pe-tree-count");
-              if (nameSpan) {
-                nameSpan.textContent = resType.name;
-              }
-              if (countSpan) {
-                countSpan.textContent = `(${count})`;
-              } // 替换图标
-              const iconNode = item.firstChild;
-              if (iconNode && iconNode.nodeType === Node.TEXT_NODE) {
-                iconNode.textContent = resType.icon + " ";
-              }
-            }
-            resourcesList.appendChild(clone);
-          });
-
-        if (resourceCount) {
-          resourceCount.textContent = `(${totalResources})`;
-        }
-      } else {
-        if (resourceCount) {
-          resourceCount.textContent = "(0)";
-        }
-      }
-
-      // 控制资源节点的显示/隐藏
-      const resourcesGroup = resourcesList?.closest("details.pe-tree-group");
-      if (resourcesGroup) {
-        const resourceElement = /** @type {HTMLElement} */ (resourcesGroup);
-        if (totalResources === 0) {
-          resourceElement.style.display = "none";
-        } else {
-          resourceElement.style.display = "";
-        }
-      }
-    }
+    // PE 文件处理
+    buildPETree(parsedData, selectItem, templates);
 
     // 为所有树节点添加点击事件
     document.querySelectorAll(".pe-tree-item").forEach((item) => {
@@ -552,7 +357,9 @@
           selectItem(itemId);
         }
       });
-    }); // 默认选中PE头部总览
+    });
+
+    // 默认选中PE头部总览
     selectItem("pe_header");
   }
 
@@ -671,44 +478,91 @@
     // PE 文件处理
     // 特殊处理
     if (itemId === "pe_header") {
-      showOverview();
+      showPEOverview(
+        parsedData,
+        peDetails,
+        detailsTitle,
+        createTable,
+        formatAddress,
+        hideSearchBox,
+      );
       return;
     }
 
     // 处理DOS头部
     if (itemId === "dos_header") {
-      showDosHeader();
+      showPEDosHeader(
+        parsedData,
+        peDetails,
+        detailsTitle,
+        hideSearchBox,
+        generateValueDetails,
+      );
       return;
     }
 
     // 处理COFF头部
     if (itemId === "coff_header") {
-      showCoffHeader();
+      showPECoffHeader(
+        parsedData,
+        peDetails,
+        detailsTitle,
+        hideSearchBox,
+        generateValueDetails,
+      );
       return;
     }
 
     // 处理可选头部
     if (itemId === "optional_header") {
-      showOptionalHeader();
+      showPEOptionalHeader(
+        parsedData,
+        peDetails,
+        detailsTitle,
+        hideSearchBox,
+        generateValueDetails,
+      );
       return;
     }
 
     // 处理数据目录
     if (itemId === "data_directory") {
-      showDataDirectory();
+      showPEDataDirectory(
+        parsedData,
+        peDetails,
+        detailsTitle,
+        createTable,
+        hideSearchBox,
+        showEmptyMessage,
+      );
       return;
     }
 
     // 处理区段列表
     if (itemId === "sections") {
-      showAllSections();
+      showPEAllSections(
+        parsedData,
+        peDetails,
+        detailsTitle,
+        createTable,
+        hideSearchBox,
+        showEmptyMessage,
+      );
       return;
     }
 
     // 处理单个区段
     if (itemId.startsWith("section_")) {
       const sectionName = itemId.replace("section_", "");
-      showSection(sectionName);
+      showPESection(
+        sectionName,
+        parsedData,
+        peDetails,
+        detailsTitle,
+        hideSearchBox,
+        showEmptyMessage,
+        generateValueDetails,
+      );
       return;
     }
 
@@ -758,455 +612,6 @@
     hideSearchBox();
     detailsTitle.textContent = t("detailsTitle");
     showEmptyMessage(t("selectItemMessage"));
-  }
-
-  function showOverview() {
-    if (!parsedData || !peDetails || !detailsTitle) {
-      return;
-    }
-
-    hideSearchBox();
-
-    // 检测位数
-    let is64Bit = false;
-    let bitInfo = t("bit32");
-    if (
-      parsedData.nt_headers &&
-      parsedData.nt_headers.OptionalHeader &&
-      parsedData.nt_headers.OptionalHeader.Magic
-    ) {
-      const magic = parsedData.nt_headers.OptionalHeader.Magic;
-      if (magic === 0x20b) {
-        is64Bit = true;
-        bitInfo = t("bit64");
-      }
-    }
-
-    detailsTitle.textContent = `${t("peOverview")} (${bitInfo})`;
-    peDetails.innerHTML = "";
-
-    const container = document.createElement("div");
-    container.className = "pe-details-section";
-
-    // 添加位数突出显示
-    const archHeader = document.createElement("h4");
-    archHeader.innerHTML = `${t("architectureInfo")}: <span style="color: ${
-      is64Bit ? "#4CAF50" : "#2196F3"
-    }; font-weight: bold;">${bitInfo} ${t("bitPEFile")}</span>`;
-    container.appendChild(archHeader);
-
-    // DOS头信息
-    if (parsedData.dos_header) {
-      const dosRows = [
-        [
-          t("magic"),
-          String(parsedData.dos_header.e_magic || "N/A"),
-          `0x${(parsedData.dos_header.e_magic || 0).toString(16).toUpperCase()}`,
-          t("mzIdentifier"),
-        ],
-        [
-          t("ntHeaderOffset"),
-          String(parsedData.dos_header.e_lfanew || "N/A"),
-          `0x${(parsedData.dos_header.e_lfanew || 0).toString(16).toUpperCase()}`,
-          t("ntHeaderPosition"),
-        ],
-      ];
-      container.appendChild(
-        createTable(
-          t("dosHeaderInfo"),
-          [t("field"), t("value"), t("hex"), t("description")],
-          dosRows,
-          ["", "pe-details-value", "pe-details-hex", ""],
-        ),
-      );
-    }
-
-    // NT头信息
-    if (parsedData.nt_headers) {
-      const ntRows = [];
-      ntRows.push([
-        "签名",
-        String(parsedData.nt_headers.Signature || "N/A"),
-        `0x${(parsedData.nt_headers.Signature || 0).toString(16).toUpperCase()}`,
-        "PE 标识符",
-      ]);
-
-      if (parsedData.nt_headers.FileHeader) {
-        ntRows.push([
-          "机器类型",
-          String(parsedData.nt_headers.FileHeader.Machine || "N/A"),
-          `0x${(parsedData.nt_headers.FileHeader.Machine || 0)
-            .toString(16)
-            .toUpperCase()}`,
-          "目标 CPU",
-        ]);
-        ntRows.push([
-          "节数量",
-          String(parsedData.nt_headers.FileHeader.NumberOfSections || "N/A"),
-          "",
-          "节表中的节数",
-        ]);
-      }
-
-      if (parsedData.nt_headers.OptionalHeader) {
-        ntRows.push([
-          t("addressOfEntryPoint"),
-          String(
-            parsedData.nt_headers.OptionalHeader.AddressOfEntryPoint || "N/A",
-          ),
-          formatAddress(
-            parsedData.nt_headers.OptionalHeader.AddressOfEntryPoint || 0,
-          ),
-          t("entryPointAddress"),
-        ]);
-        ntRows.push([
-          t("imageBase"),
-          String(parsedData.nt_headers.OptionalHeader.ImageBase || "N/A"),
-          formatAddress(parsedData.nt_headers.OptionalHeader.ImageBase || 0),
-          t("imageBaseAddress"),
-        ]);
-      }
-      container.appendChild(
-        createTable(
-          t("ntHeaderInfo"),
-          [t("field"), t("value"), t("hex"), t("description")],
-          ntRows,
-          ["", "pe-details-value", "pe-details-hex", ""],
-        ),
-      );
-    }
-
-    // 节信息
-    if (parsedData.sections && parsedData.sections.length > 0) {
-      const sectionRows = parsedData.sections.map((section, index) => {
-        const sectionName = section.Name
-          ? section.Name.replace(/\0/g, "")
-          : `Section ${index + 1}`;
-        return [
-          sectionName,
-          String(section.VirtualSize || "N/A"),
-          formatAddress(section.VirtualAddress || 0),
-          String(section.SizeOfRawData || "N/A"),
-          formatAddress(section.PointerToRawData || 0),
-          `0x${(section.Characteristics || 0).toString(16).toUpperCase()}`,
-        ];
-      });
-      container.appendChild(
-        createTable(
-          "节信息",
-          ["节名", "虚拟大小", "虚拟地址", "原始大小", "原始指针", "特性"],
-          sectionRows,
-          [
-            "pe-details-value",
-            "pe-details-value",
-            "pe-details-hex",
-            "pe-details-value",
-            "pe-details-hex",
-            "pe-details-hex",
-          ],
-        ),
-      );
-    }
-
-    // 导出函数统计
-    if (
-      parsedData.exports &&
-      parsedData.exports.functions &&
-      parsedData.exports.functions.length > 0
-    ) {
-      const exportCount = parsedData.exports.functions.length;
-      const exportRows = [
-        [
-          "导出函数数量",
-          String(exportCount),
-          "",
-          '点击左侧"导出函数"查看详细列表',
-        ],
-      ];
-      container.appendChild(
-        createTable("导出函数统计", ["类型", "数量", "", "说明"], exportRows, [
-          "",
-          "pe-details-value",
-          "",
-          "",
-        ]),
-      );
-    }
-
-    // 导入函数统计
-    if (parsedData.imports && parsedData.imports.length > 0) {
-      let totalImportFunctions = 0;
-      const importDllRows = parsedData.imports.map(
-        (/** @type {ImportDLL} */ dll) => {
-          const funcCount = dll.functions ? dll.functions.length : 0;
-          totalImportFunctions += funcCount;
-          return [dll.name, String(funcCount)];
-        },
-      );
-
-      // 添加总计行
-      importDllRows.push(["总计", String(totalImportFunctions)]);
-
-      container.appendChild(
-        createTable("导入函数统计", ["DLL 名称", "函数数量"], importDllRows, [
-          "pe-details-value",
-          "pe-details-value",
-        ]),
-      );
-
-      const importNote = document.createElement("p");
-      importNote.style.marginTop = "5px";
-      importNote.style.fontSize = "12px";
-      importNote.style.color = "var(--vscode-descriptionForeground)";
-      importNote.textContent = t("importHint");
-      container.appendChild(importNote);
-    }
-    peDetails.appendChild(container);
-  }
-
-  function showDosHeader() {
-    if (!parsedData || !parsedData.dos_header || !peDetails || !detailsTitle) {
-      return;
-    }
-
-    hideSearchBox();
-
-    detailsTitle.textContent = t("dosHeaderDetails");
-    peDetails.innerHTML = "";
-
-    const container = document.createElement("div");
-    container.className = "pe-details-section";
-
-    const header = document.createElement("h4");
-    header.textContent = t("dosHeaderStructure");
-    container.appendChild(header);
-    container.appendChild(
-      generateValueDetails(parsedData.dos_header, "dos_header"),
-    );
-
-    peDetails.appendChild(container);
-  }
-
-  function showCoffHeader() {
-    if (
-      !parsedData ||
-      !parsedData.nt_headers ||
-      !parsedData.nt_headers.FileHeader ||
-      !peDetails ||
-      !detailsTitle
-    ) {
-      return;
-    }
-
-    hideSearchBox();
-
-    detailsTitle.textContent = t("coffHeaderDetails");
-    peDetails.innerHTML = "";
-
-    const container = document.createElement("div");
-    container.className = "pe-details-section";
-
-    const header = document.createElement("h4");
-    header.textContent = t("coffFileHeader");
-    container.appendChild(header);
-    container.appendChild(
-      generateValueDetails(parsedData.nt_headers.FileHeader, "coff_header"),
-    );
-
-    peDetails.appendChild(container);
-  }
-
-  function showOptionalHeader() {
-    if (
-      !parsedData ||
-      !parsedData.nt_headers ||
-      !parsedData.nt_headers.OptionalHeader ||
-      !peDetails ||
-      !detailsTitle
-    ) {
-      return;
-    }
-
-    hideSearchBox();
-
-    detailsTitle.textContent = t("optionalHeaderDetails");
-    peDetails.innerHTML = "";
-
-    const container = document.createElement("div");
-    container.className = "pe-details-section";
-
-    const header = document.createElement("h4");
-    header.textContent = t("optionalHeaderStructure");
-    container.appendChild(header);
-    container.appendChild(
-      generateValueDetails(
-        parsedData.nt_headers.OptionalHeader,
-        "optional_header",
-      ),
-    );
-
-    peDetails.appendChild(container);
-  }
-
-  function showDataDirectory() {
-    if (
-      !parsedData ||
-      !parsedData.nt_headers ||
-      !parsedData.nt_headers.OptionalHeader ||
-      !peDetails ||
-      !detailsTitle
-    ) {
-      return;
-    }
-
-    hideSearchBox();
-
-    const dataDir = /** @type {any} */ (parsedData.nt_headers.OptionalHeader)
-      .DataDirectory;
-    if (!dataDir) {
-      return;
-    }
-
-    detailsTitle.textContent = t("dataDirectoryDetails");
-    peDetails.innerHTML = "";
-
-    const directoryNames = [
-      t("exportTable"),
-      t("importTable"),
-      t("resourceTable"),
-      t("exceptionTable"),
-      t("certificateTable"),
-      t("relocationTable"),
-      t("debugInfo"),
-      t("architectureData"),
-      t("globalPointer"),
-      t("tlsTable"),
-      t("loadConfigTable"),
-      t("boundImportTable"),
-      t("iat"),
-      t("delayImportTable"),
-      t("clrRuntimeHeader"),
-      t("reserved"),
-    ];
-
-    /** @type {Array<string[]>} */
-    const dirRows = [];
-    dataDir.forEach((/** @type {any} */ dir, /** @type {number} */ index) => {
-      if (dir && (dir.VirtualAddress || dir.Size)) {
-        dirRows.push([
-          String(index),
-          directoryNames[index] || t("unknown"),
-          formatAddress(dir.VirtualAddress || 0),
-          String(dir.Size || 0),
-        ]);
-      }
-    });
-
-    peDetails.appendChild(
-      createTable(
-        t("dataDirectoryTable"),
-        [t("index"), t("type"), t("virtualAddress"), t("size")],
-        dirRows,
-        [
-          "pe-details-value",
-          "pe-details-value",
-          "pe-details-hex",
-          "pe-details-value",
-        ],
-      ),
-    );
-  }
-
-  function showAllSections() {
-    if (!parsedData || !parsedData.sections || !peDetails || !detailsTitle) {
-      return;
-    }
-
-    hideSearchBox();
-
-    detailsTitle.textContent = `${t("sectionsList")} (${t(
-      "totalSections",
-    ).replace("{count}", parsedData.sections.length)})`;
-    peDetails.innerHTML = "";
-
-    const sectionRows = parsedData.sections.map(
-      (/** @type {Section} */ section, /** @type {number} */ index) => {
-        const sectionName = section.Name
-          ? section.Name.replace(/\0/g, "")
-          : `Section ${index + 1}`;
-        return [
-          sectionName,
-          formatAddress(section.VirtualAddress || 0),
-          String(section.VirtualSize || 0),
-          formatAddress(section.PointerToRawData || 0),
-          String(section.SizeOfRawData || 0),
-          `0x${(section.Characteristics || 0).toString(16).toUpperCase()}`,
-        ];
-      },
-    );
-
-    peDetails.appendChild(
-      createTable(
-        t("allSectionsOverview"),
-        [
-          t("sectionName"),
-          t("virtualAddress"),
-          t("virtualSize"),
-          t("rawPointer"),
-          t("rawSize"),
-          t("characteristics"),
-        ],
-        sectionRows,
-        [
-          "pe-details-value",
-          "pe-details-hex",
-          "pe-details-value",
-          "pe-details-hex",
-          "pe-details-value",
-          "pe-details-hex",
-        ],
-      ),
-    );
-  }
-
-  /**
-   * @param {string} sectionName
-   */
-  function showSection(sectionName) {
-    if (!parsedData || !parsedData.sections || !peDetails || !detailsTitle) {
-      return;
-    }
-
-    hideSearchBox();
-
-    const section = parsedData.sections.find((/** @type {Section} */ s) => {
-      const name = s.Name ? s.Name.replace(/\0/g, "") : "";
-      return name === sectionName;
-    });
-
-    if (!section) {
-      detailsTitle.textContent = t("sectionsNotFound");
-      showEmptyMessage(t("noResourcesFound"));
-      return;
-    }
-
-    detailsTitle.textContent = `${t("section")}: ${sectionName}`;
-    peDetails.innerHTML = "";
-
-    const container = document.createElement("div");
-    container.className = "pe-details-section";
-
-    const header = document.createElement("h4");
-    header.textContent = t("sectionDetails").replace(
-      "{sectionName}",
-      sectionName,
-    );
-    container.appendChild(header);
-    container.appendChild(
-      generateValueDetails(section, `section_${sectionName}`),
-    );
-
-    peDetails.appendChild(container);
   }
 
   function showExports() {

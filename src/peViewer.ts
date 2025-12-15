@@ -975,6 +975,9 @@ export class PEEditorProvider implements vscode.CustomEditorProvider<PEDocument>
     const localesUri = webview.asWebviewUri(
       vscode.Uri.joinPath(this._context.extensionUri, "media", "locales.js"),
     );
+    const peHandlerUri = webview.asWebviewUri(
+      vscode.Uri.joinPath(this._context.extensionUri, "media", "peHandler.js"),
+    );
     const elfHandlerUri = webview.asWebviewUri(
       vscode.Uri.joinPath(this._context.extensionUri, "media", "elfHandler.js"),
     );
@@ -1013,6 +1016,7 @@ export class PEEditorProvider implements vscode.CustomEditorProvider<PEDocument>
       .replace(/\$\{styleVSCodeUri\}/g, styleVSCodeUri.toString())
       .replace(/\$\{styleMainUri\}/g, styleMainUri.toString())
       .replace(/\$\{localesUri\}/g, localesUri.toString())
+      .replace(/\$\{peHandlerUri\}/g, peHandlerUri.toString())
       .replace(/\$\{elfHandlerUri\}/g, elfHandlerUri.toString())
       .replace(/\$\{scriptUri\}/g, scriptUri.toString());
   }
