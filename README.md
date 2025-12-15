@@ -8,7 +8,6 @@ A VS Code extension for viewing and analyzing Windows PE (Portable Executable) f
 
 ![PEViewer Screenshot](https://raw.githubusercontent.com/easyatm/vscode-extension-PEViewer/main/media/ScreenShot_2025-12-07_010545_842.png)
 
-
 ## Features
 
 - 📁 **Structured View**: Display PE file components in a tree structure
@@ -50,6 +49,8 @@ Supports Chinese and English interfaces, automatically adapts to VS Code languag
 ```bash
 npm install
 npm run compile
+
+npm run format
 ```
 
 ## License
