@@ -32,6 +32,20 @@
           ".drv",
           ".cpl"
         ]
+      },
+      {
+        "id": "elf",
+        "aliases": [
+          "ELF",
+          "Executable and Linkable Format"
+        ],
+        "extensions": [
+          ".so",
+          ".o",
+          ".a",
+          ".ko",
+          ".elf"
+        ]
       }
     ],
     "customEditors": [
@@ -59,6 +73,36 @@
           },
           {
             "filenamePattern": "*.cpl"
+          },
+          {
+            "filenamePattern": "*.so"
+          },
+          {
+            "filenamePattern": "*.so.*"
+          },
+          {
+            "filenamePattern": "lib*.so"
+          },
+          {
+            "filenamePattern": "*.o"
+          },
+          {
+            "filenamePattern": "*.a"
+          },
+          {
+            "filenamePattern": "*.ko"
+          },
+          {
+            "filenamePattern": "*.elf"
+          },
+          {
+            "filenamePattern": "*.axf"
+          },
+          {
+            "filenamePattern": "*.bin"
+          },
+          {
+            "filenamePattern": "*.out"
           }
         ]
       }
@@ -86,7 +130,7 @@
   },
   "devDependencies": {
     "@types/mocha": "^10.0.10",
-    "@types/node": "22.x",
+    "@types/node": "^22.19.3",
     "@types/vscode": "^1.106.1",
     "@vscode/test-cli": "^0.0.12",
     "@vscode/test-electron": "^2.5.2",
@@ -100,6 +144,8 @@
     "webpack-cli": "^6.0.1"
   },
   "dependencies": {
+    "elf-tools": "^1.1.2",
+    "elfy": "^1.0.0",
     "pe-parser": "^1.0.11"
   }
 }

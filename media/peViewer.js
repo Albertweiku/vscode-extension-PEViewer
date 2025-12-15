@@ -1,4 +1,4 @@
-// @ts-check
+﻿// @ts-check
 
 // 此脚本在 webview 本身中运行
 (function () {
@@ -217,6 +217,64 @@
    */
 
   /**
+   * @typedef {Object} ELFImportFunction
+   * @property {string} [name]
+   * @property {string} [version]
+   */
+
+  /**
+   * @typedef {Object} ELFImportLibrary
+   * @property {string} name
+   * @property {ELFImportFunction[]} functions
+   */
+
+  /**
+   * @typedef {Object} ELFExportFunction
+   * @property {string} name
+   * @property {number} address
+   * @property {number} size
+   * @property {string} [type]
+   * @property {string} [binding]
+   */
+
+  /**
+   * @typedef {Object} ELFExportTable
+   * @property {ELFExportFunction[]} functions
+   */
+
+  /**
+   * @typedef {Object} ELFSectionHeader
+   * @property {string} [name]
+   * @property {number} [type]
+   * @property {number} [addr]
+   * @property {number} [offset]
+   * @property {number} [size]
+   */
+
+  /**
+   * @typedef {Object} ELFHeader
+   * @property {number} [class]
+   * @property {number} [data]
+   * @property {number} [version]
+   * @property {number} [type]
+   * @property {number} [machine]
+   * @property {number} [entry]
+   */
+
+  /**
+   * @typedef {Object} ExtendedELFData
+   * @property {ELFHeader} [header]
+   * @property {any[]} [programHeaders]
+   * @property {ELFSectionHeader[]} [sectionHeaders]
+   * @property {any[]} [symbols]
+   * @property {any[]} [dynamicSymbols]
+   * @property {ELFImportLibrary[]} [imports]
+   * @property {ELFExportTable} [exports]
+   * @property {any[]} [dynamic]
+   * @property {any[]} [notes]
+   */
+
+  /**
    * @typedef {Object} ParsedData
    * @property {DosHeader} [dos_header]
    * @property {NtHeaders} [nt_headers]
@@ -224,6 +282,8 @@
    * @property {ImportDLL[]} [imports]
    * @property {ExportTable} [exports]
    * @property {ResourceDirectory} [resources]
+   * @property {"PE" | "ELF"} [fileType]
+   * @property {ExtendedELFData} [elfData]
    */
 
   /** @type {ParsedData | null} */
@@ -272,6 +332,12 @@
 
   function buildTree() {
     if (!parsedData) {
+      return;
+    }
+
+    // 检查是否为 ELF 文件
+    if (parsedData.fileType === "ELF") {
+      buildELFTree(parsedData, selectItem);
       return;
     }
 
@@ -520,6 +586,89 @@
       return;
     }
 
+    // 检查是否为 ELF 文件
+    if (parsedData.fileType === "ELF") {
+      // ELF 文件特殊处理
+      if (itemId === "pe_header") {
+        showELFOverview(
+          parsedData,
+          peDetails,
+          detailsTitle,
+          createTable,
+          hideSearchBox,
+        );
+        return;
+      }
+
+      if (itemId === "sections") {
+        showELFSections(
+          parsedData,
+          peDetails,
+          detailsTitle,
+          createTable,
+          hideSearchBox,
+          showEmptyMessage,
+        );
+        return;
+      }
+
+      if (itemId === "exports") {
+        showELFExports(
+          parsedData,
+          peDetails,
+          detailsTitle,
+          createTable,
+          hideSearchBox,
+          showSearchBox,
+          showEmptyMessage,
+        );
+        return;
+      }
+
+      if (itemId === "imports") {
+        showELFImportsOverview(
+          parsedData,
+          peDetails,
+          detailsTitle,
+          createTable,
+          hideSearchBox,
+          showEmptyMessage,
+        );
+        return;
+      }
+
+      if (itemId.startsWith("imports.")) {
+        const parts = itemId.split(".");
+        if (parts.length === 2) {
+          const libIndex = parseInt(parts[1]);
+          if (
+            !isNaN(libIndex) &&
+            parsedData.elfData &&
+            parsedData.elfData.imports &&
+            parsedData.elfData.imports[libIndex]
+          ) {
+            showELFLibraryImports(
+              parsedData.elfData.imports[libIndex],
+              peDetails,
+              detailsTitle,
+              createTable,
+              hideSearchBox,
+              showSearchBox,
+              showEmptyMessage,
+            );
+            return;
+          }
+        }
+      }
+
+      // 默认显示
+      hideSearchBox();
+      detailsTitle.textContent = t("detailsTitle");
+      showEmptyMessage(t("selectItemMessage"));
+      return;
+    }
+
+    // PE 文件处理
     // 特殊处理
     if (itemId === "pe_header") {
       showOverview();

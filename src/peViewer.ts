@@ -1,8 +1,10 @@
-import * as vscode from "vscode";
-import { Disposable, disposeAll } from "./dispose";
-import { getNonce } from "./util";
-import { Parse } from "pe-parser";
 import * as fs from "fs";
+import { Parse } from "pe-parser";
+import * as vscode from "vscode";
+
+import { Disposable, disposeAll } from "./dispose";
+import { ExtendedELFData, isELFFile, parseELF } from "./elfParser";
+import { getNonce } from "./util";
 
 // PE文件解析相关的类型定义
 interface ImportFunction {
@@ -52,6 +54,8 @@ interface ExtendedPEData {
   imports?: ImportDLL[];
   exports?: ExportTable;
   resources?: ResourceDirectory;
+  fileType?: "PE" | "ELF";
+  elfData?: ExtendedELFData;
 }
 
 /**
@@ -67,11 +71,44 @@ class PEDocument extends Disposable implements vscode.CustomDocument {
     const dataFile =
       typeof backupId === "string" ? vscode.Uri.parse(backupId) : uri;
     const fileData = await PEDocument.readFile(dataFile);
-    const basicData = await Parse(Buffer.from(fileData));
-    const extendedData = await PEDocument.parseExtendedData(
-      Buffer.from(fileData),
-      basicData,
-    );
+    const buffer = Buffer.from(fileData);
+
+    console.log(`Opening file: ${uri.fsPath}, size: ${buffer.length} bytes`);
+
+    let basicData: any;
+    let extendedData: ExtendedPEData;
+
+    // 检查文件类型
+    if (isELFFile(buffer)) {
+      // ELF 文件
+      console.log(`Detected ELF file: ${uri.fsPath}`);
+      try {
+        const elfData = await parseELF(buffer);
+        extendedData = {
+          fileType: "ELF",
+          elfData: elfData,
+        };
+        console.log("ELF parsing successful");
+      } catch (error) {
+        console.error("ELF parsing failed:", error);
+        vscode.window.showErrorMessage(`无法解析 ELF 文件: ${error}`);
+        throw error;
+      }
+    } else {
+      // PE 文件
+      console.log(`Detected PE file: ${uri.fsPath}`);
+      try {
+        basicData = await Parse(buffer);
+        extendedData = await PEDocument.parseExtendedData(buffer, basicData);
+        extendedData.fileType = "PE";
+        console.log("PE parsing successful");
+      } catch (error) {
+        console.error("PE parsing failed:", error);
+        vscode.window.showErrorMessage(`无法解析 PE 文件: ${error}`);
+        throw error;
+      }
+    }
+
     return new PEDocument(uri, fileData, extendedData, delegate);
   }
 
@@ -686,7 +723,20 @@ class PEDocument extends Disposable implements vscode.CustomDocument {
 
   public async updateData(data: Uint8Array): Promise<void> {
     this._documentData = data;
-    this._parsedData = await Parse(Buffer.from(data));
+    const buffer = Buffer.from(data);
+
+    if (isELFFile(buffer)) {
+      // ELF 文件
+      const elfData = await parseELF(buffer);
+      this._parsedData = {
+        fileType: "ELF",
+        elfData: elfData,
+      };
+    } else {
+      // PE 文件
+      this._parsedData = await Parse(buffer);
+      this._parsedData.fileType = "PE";
+    }
   }
 }
 
@@ -925,6 +975,9 @@ export class PEEditorProvider implements vscode.CustomEditorProvider<PEDocument>
     const localesUri = webview.asWebviewUri(
       vscode.Uri.joinPath(this._context.extensionUri, "media", "locales.js"),
     );
+    const elfHandlerUri = webview.asWebviewUri(
+      vscode.Uri.joinPath(this._context.extensionUri, "media", "elfHandler.js"),
+    );
 
     const styleResetUri = webview.asWebviewUri(
       vscode.Uri.joinPath(this._context.extensionUri, "media", "reset.css"),
@@ -960,6 +1013,7 @@ export class PEEditorProvider implements vscode.CustomEditorProvider<PEDocument>
       .replace(/\$\{styleVSCodeUri\}/g, styleVSCodeUri.toString())
       .replace(/\$\{styleMainUri\}/g, styleMainUri.toString())
       .replace(/\$\{localesUri\}/g, localesUri.toString())
+      .replace(/\$\{elfHandlerUri\}/g, elfHandlerUri.toString())
       .replace(/\$\{scriptUri\}/g, scriptUri.toString());
   }
 }
