@@ -234,17 +234,17 @@ body {
 /* 序号列宽度 - 通常是第一列 */
 .pe-details-table tr th:first-child,
 .pe-details-table tr td:first-child {
-  width: 80px !important;
-  max-width: 80px !important;
-  min-width: 60px !important;
+  width: 80px ;
+  max-width: 80px ;
+  min-width: 60px ;
 }
 
 /* 地址列宽度 */
 .pe-details-table tr th:nth-child(2),
 .pe-details-table tr td:nth-child(2) {
-  width: 120px !important;
-  max-width: 120px !important;
-  min-width: 100px !important;
+  width: 120px ;
+  max-width: 120px ;
+  min-width: 100px ;
 }
 
 .pe-details-table td {
@@ -263,31 +263,34 @@ body {
 .export-table-container .pe-details-table {
   table-layout: fixed;
   width: 100%;
+  min-width: 800px; /* 确保表格有最小宽度，防止列挤压 */
 }
 
 /* 导出函数表格列宽 */
 .export-table-container .pe-details-table tr th:nth-child(1),
 .export-table-container .pe-details-table tr td:nth-child(1) {
-  width: 80px !important;
-  min-width: 80px !important;
+  width: 12px !important;
+  min-width: 12px !important;
+  max-width: 12px !important;
 }
 
 .export-table-container .pe-details-table tr th:nth-child(2),
 .export-table-container .pe-details-table tr td:nth-child(2) {
-  width: 120px !important;
-  min-width: 120px !important;
+  width: 30px !important;
+  min-width: 30px !important;
+  max-width: 30px !important;
 }
 
 .export-table-container .pe-details-table tr th:nth-child(3),
 .export-table-container .pe-details-table tr td:nth-child(3) {
-  width: 40%;
-  min-width: 200px;
+  width: 45%;
+  min-width: 250px;
 }
 
 .export-table-container .pe-details-table tr th:nth-child(4),
 .export-table-container .pe-details-table tr td:nth-child(4) {
-  width: 40%;
-  min-width: 200px;
+  width: 45%;
+  min-width: 250px;
 }
 
 /* 函数名列样式 */
@@ -296,6 +299,8 @@ body {
   word-break: break-all;
   white-space: normal;
   overflow-wrap: anywhere;
+  overflow: hidden;
+  vertical-align: top;
 }
 
 /* 导入函数表格容器 */
@@ -336,6 +341,60 @@ body {
   word-break: break-all;
   white-space: normal;
   overflow-wrap: anywhere;
+}
+
+/* ELF 导出符号表格样式 */
+.pe-details-section .pe-details-table {
+  table-layout: fixed;
+  width: 100%;
+  min-width: 900px;
+}
+
+/* ELF 导出符号表格列宽（6列） */
+.pe-details-section .pe-details-table tr th:nth-child(1),
+.pe-details-section .pe-details-table tr td:nth-child(1) {
+  width: 60px;
+  min-width: 60px;
+  max-width: 60px;
+}
+
+.pe-details-section .pe-details-table tr th:nth-child(2),
+.pe-details-section .pe-details-table tr td:nth-child(2) {
+  width: 40%;
+  min-width: 200px;
+  word-break: break-all;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  overflow: hidden;
+  vertical-align: top;
+}
+
+.pe-details-section .pe-details-table tr th:nth-child(3),
+.pe-details-section .pe-details-table tr td:nth-child(3) {
+  width: 120px;
+  min-width: 120px;
+  max-width: 120px;
+}
+
+.pe-details-section .pe-details-table tr th:nth-child(4),
+.pe-details-section .pe-details-table tr td:nth-child(4) {
+  width: 80px;
+  min-width: 80px;
+  max-width: 80px;
+}
+
+.pe-details-section .pe-details-table tr th:nth-child(5),
+.pe-details-section .pe-details-table tr td:nth-child(5) {
+  width: 100px;
+  min-width: 100px;
+  max-width: 100px;
+}
+
+.pe-details-section .pe-details-table tr th:nth-child(6),
+.pe-details-section .pe-details-table tr td:nth-child(6) {
+  width: 100px;
+  min-width: 100px;
+  max-width: 100px;
 }
 
 .pe-details-value {
