@@ -13,7 +13,7 @@
   "bugs": {
     "url": "https://github.com/Albertweiku/vscode-extension-PEViewer.git/issues"
   },
-  "homepage": "https://github.com/Albertweiku/vscode-extension-PEViewer.git#readme",
+  "homepage": "https://github.com/Albertweiku/vscode-extension-PEViewer/blob/main/README.zh-cn.md",
   "keywords": [
     "PE",
     "ELF",

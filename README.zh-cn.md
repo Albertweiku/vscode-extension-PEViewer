@@ -2,7 +2,7 @@
 
 一个专业的 VS Code 扩展，用于查看和分析 Windows PE（Portable Executable）文件和 Linux ELF（Executable and Linkable Format）文件结构。支持导入/导出符号解析、资源查看、函数名自动解码等高级功能。
 
-![PEViewer界面截图](https://raw.githubusercontent.com/easyatm/vscode-extension-PEViewer/main/media/ScreenShot_2025-12-07_010545_842.png)
+![PEViewer界面截图](./media/image.png)
 
 ## 功能特性
 
