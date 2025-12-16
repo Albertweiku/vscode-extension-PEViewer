@@ -1640,8 +1640,8 @@
         dll.functions.forEach((/** @type {ImportFunction} */ func) => {
           allFunctions.push({
             dll: dll.name,
-            name: func.name || `序号 ${func.ordinal}`,
-            type: func.name ? "按名称" : "按序号",
+            name: func.name || `${t("ordinalPrefix")}${func.ordinal}`,
+            type: func.name ? t("byName") : t("byOrdinal"),
           });
           totalFunctions++;
         });
@@ -2744,7 +2744,7 @@
             // 不设置width，让它自动占满剩余空间
             const textInput = document.createElement("input");
             textInput.type = "text";
-            textInput.value = str.value || "(空字符串)";
+            textInput.value = str.value || t("emptyString");
             textInput.readOnly = true;
             textInput.style.width = "100%";
             textInput.style.border = "1px solid var(--vscode-input-border)";

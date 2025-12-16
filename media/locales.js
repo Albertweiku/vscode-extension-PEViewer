@@ -346,6 +346,7 @@ const locales = {
     clickToSaveIcon: "点击保存图标",
     bitSuffix: " bit",
     versionInfoFields: "版本信息字段",
+    emptyString: "(空字符串)",
 
     // ELF 文件相关
     elfViewerTitle: "ELF Viewer - ELF文件结构",
@@ -774,6 +775,7 @@ const locales = {
     clickToSaveIcon: "Click to save icon",
     bitSuffix: " bit",
     versionInfoFields: "Version Information Fields",
+    emptyString: "(Empty String)",
 
     // ELF File Related
     elfViewerTitle: "ELF Viewer - ELF File Structure",
