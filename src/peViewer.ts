@@ -4,6 +4,7 @@ import * as vscode from "vscode";
 
 import { Disposable, disposeAll } from "./dispose";
 import { ExtendedELFData, isELFFile, parseELF } from "./elfParser";
+import { isLibFile, LibArchiveData, parseLibArchive } from "./libParser";
 import { getNonce } from "./util";
 
 // PE文件解析相关的类型定义
@@ -54,8 +55,9 @@ interface ExtendedPEData {
   imports?: ImportDLL[];
   exports?: ExportTable;
   resources?: ResourceDirectory;
-  fileType?: "PE" | "ELF";
+  fileType?: "PE" | "ELF" | "LIB";
   elfData?: ExtendedELFData;
+  libData?: LibArchiveData;
 }
 
 /**
@@ -92,6 +94,23 @@ class PEDocument extends Disposable implements vscode.CustomDocument {
       } catch (error) {
         console.error("ELF parsing failed:", error);
         vscode.window.showErrorMessage(`无法解析 ELF 文件: ${error}`);
+        throw error;
+      }
+    } else if (isLibFile(buffer)) {
+      // LIB 文件 (COFF Archive)
+      console.log(`Detected LIB file: ${uri.fsPath}`);
+      try {
+        const libData = await parseLibArchive(buffer);
+        extendedData = {
+          fileType: "LIB",
+          libData: libData,
+        };
+        console.log(
+          `LIB parsing successful: ${libData.members.length} members`,
+        );
+      } catch (error) {
+        console.error("LIB parsing failed:", error);
+        vscode.window.showErrorMessage(`无法解析 LIB 文件: ${error}`);
         throw error;
       }
     } else {
@@ -842,9 +861,15 @@ export class PEEditorProvider implements vscode.CustomEditorProvider<PEDocument>
 
           this.postMessage(webviewPanel, "init", {
             value: JSON.parse(
-              JSON.stringify(document.parsedData, (key, value) =>
-                typeof value === "bigint" ? value.toString() : value,
-              ),
+              JSON.stringify(document.parsedData, (key, value) => {
+                if (typeof value === "bigint") {
+                  return value.toString();
+                }
+                if (value instanceof Map) {
+                  return Object.fromEntries(value);
+                }
+                return value;
+              }),
             ),
             editable,
             language: vscode.env.language,
@@ -883,9 +908,15 @@ export class PEEditorProvider implements vscode.CustomEditorProvider<PEDocument>
       await document.updateData(data);
       this.postMessageToAll(document.uri, "update", {
         parsedData: JSON.parse(
-          JSON.stringify(document.parsedData, (key, value) =>
-            typeof value === "bigint" ? value.toString() : value,
-          ),
+          JSON.stringify(document.parsedData, (key, value) => {
+            if (typeof value === "bigint") {
+              return value.toString();
+            }
+            if (value instanceof Map) {
+              return Object.fromEntries(value);
+            }
+            return value;
+          }),
         ),
       });
     });
@@ -981,6 +1012,9 @@ export class PEEditorProvider implements vscode.CustomEditorProvider<PEDocument>
     const elfHandlerUri = webview.asWebviewUri(
       vscode.Uri.joinPath(this._context.extensionUri, "media", "elfHandler.js"),
     );
+    const libHandlerUri = webview.asWebviewUri(
+      vscode.Uri.joinPath(this._context.extensionUri, "media", "libHandler.js"),
+    );
 
     const styleResetUri = webview.asWebviewUri(
       vscode.Uri.joinPath(this._context.extensionUri, "media", "reset.css"),
@@ -1018,6 +1052,7 @@ export class PEEditorProvider implements vscode.CustomEditorProvider<PEDocument>
       .replace(/\$\{localesUri\}/g, localesUri.toString())
       .replace(/\$\{peHandlerUri\}/g, peHandlerUri.toString())
       .replace(/\$\{elfHandlerUri\}/g, elfHandlerUri.toString())
+      .replace(/\$\{libHandlerUri\}/g, libHandlerUri.toString())
       .replace(/\$\{scriptUri\}/g, scriptUri.toString());
   }
 }

@@ -282,8 +282,9 @@
    * @property {ImportDLL[]} [imports]
    * @property {ExportTable} [exports]
    * @property {ResourceDirectory} [resources]
-   * @property {"PE" | "ELF"} [fileType]
+   * @property {"PE" | "ELF" | "LIB"} [fileType]
    * @property {ExtendedELFData} [elfData]
+   * @property {LibArchiveData} [libData]
    */
 
   /** @type {ParsedData | null} */
@@ -338,6 +339,12 @@
     // 检查是否为 ELF 文件
     if (parsedData.fileType === "ELF") {
       buildELFTree(parsedData, selectItem);
+      return;
+    }
+
+    // 检查是否为 LIB 文件
+    if (parsedData.fileType === "LIB") {
+      buildLibTree(parsedData);
       return;
     }
 

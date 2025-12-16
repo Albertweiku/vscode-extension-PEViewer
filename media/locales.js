@@ -348,6 +348,31 @@ const locales = {
     versionInfoFields: "版本信息字段",
     emptyString: "(空字符串)",
 
+    // LIB 文件相关
+    libViewerTitle: "LIB Viewer - COFF Archive 文件结构",
+    libHeader: "LIB 文件头",
+    libMembers: "成员文件",
+    libSymbols: "符号索引",
+    libMemberCount: "成员总数",
+    libNormalMemberCount: "普通成员数",
+    libSymbolCount: "符号总数",
+    libTotalSize: "总大小",
+    bytes: "字节",
+    libMemberDetails: "成员详情",
+    libMemberName: "成员名称",
+    libMemberIndex: "成员索引",
+    libMemberSize: "成员大小",
+    libMemberOffset: "文件偏移",
+    libMemberTimestamp: "时间戳",
+    libMemberUID: "UID",
+    libMemberGID: "GID",
+    libMemberMode: "权限模式",
+    libMemberDataPreview: "数据预览（十六进制）",
+    libMoreBytes: "... 还有 {count} 字节",
+    libSymbolName: "符号名",
+    libSymbolMember: "所属成员",
+    libMoreSymbols: "... 还有 {count} 个符号",
+
     // ELF 文件相关
     elfViewerTitle: "ELF Viewer - ELF文件结构",
     elfOverview: "ELF 概览",
@@ -777,6 +802,31 @@ const locales = {
     versionInfoFields: "Version Information Fields",
     emptyString: "(Empty String)",
 
+    // LIB File Related
+    libViewerTitle: "LIB Viewer - COFF Archive File Structure",
+    libHeader: "LIB File Header",
+    libMembers: "Member Files",
+    libSymbols: "Symbol Index",
+    libMemberCount: "Total Members",
+    libNormalMemberCount: "Normal Members",
+    libSymbolCount: "Total Symbols",
+    libTotalSize: "Total Size",
+    bytes: "bytes",
+    libMemberDetails: "Member Details",
+    libMemberName: "Member Name",
+    libMemberIndex: "Member Index",
+    libMemberSize: "Member Size",
+    libMemberOffset: "File Offset",
+    libMemberTimestamp: "Timestamp",
+    libMemberUID: "UID",
+    libMemberGID: "GID",
+    libMemberMode: "Permission Mode",
+    libMemberDataPreview: "Data Preview (Hexadecimal)",
+    libMoreBytes: "... {count} more bytes",
+    libSymbolName: "Symbol Name",
+    libSymbolMember: "Member",
+    libMoreSymbols: "... {count} more symbols",
+
     // ELF File Related
     elfViewerTitle: "ELF Viewer - ELF File Structure",
     elfOverview: "ELF Overview",
@@ -866,12 +916,24 @@ const locales = {
 let currentLanguage = "en";
 
 // 获取本地化字符串
-function t(key) {
+function t(key, params) {
   const langData = locales[currentLanguage];
+  let text = key;
   if (langData && langData[key]) {
-    return langData[key];
+    text = langData[key];
   }
-  return key;
+
+  // 参数替换
+  if (params) {
+    Object.keys(params).forEach((paramKey) => {
+      text = text.replace(
+        new RegExp(`\\{${paramKey}\\}`, "g"),
+        params[paramKey],
+      );
+    });
+  }
+
+  return text;
 }
 
 // 更新UI语言
