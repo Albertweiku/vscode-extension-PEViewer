@@ -18,89 +18,128 @@ function buildELFTree(parsedData, selectItem) {
   // 更新 HTML title
   document.title = "ELF Viewer - ELF File Viewer";
 
-  // ELF 文件树结构
-  const elfOverviewItem = document.querySelector('[data-item="pe_header"]');
-  if (elfOverviewItem) {
-    elfOverviewItem.textContent = "📁 " + t("elfOverview");
-    // 确保点击事件已绑定
-    elfOverviewItem.onclick = (e) => {
+  // 隐藏 PE 树，显示 ELF 树
+  const peTreeStructure = document.getElementById("peTreeStructure");
+  const elfTreeStructure = document.getElementById("elfTreeStructure");
+
+  if (peTreeStructure) {
+    peTreeStructure.style.display = "none";
+  }
+
+  if (elfTreeStructure) {
+    elfTreeStructure.style.display = "";
+  }
+
+  // 设置 ELF 概览
+  const elfHeaderItem = document.querySelector('[data-item="elf_header"]');
+  if (elfHeaderItem) {
+    elfHeaderItem.onclick = (e) => {
       e.preventDefault();
       e.stopPropagation();
-      selectItem("pe_header");
+      selectItem("elf_header");
     };
   }
 
-  // 隐藏 PE 特定的项
-  const peSpecificItems = [
-    "dos_header",
-    "coff_header",
-    "optional_header",
-    "data_directory",
-    "resources",
-  ];
-  peSpecificItems.forEach((itemId) => {
-    const element = document.querySelector(`[data-item="${itemId}"]`);
-    if (element) {
-      const parent = element.parentElement;
-      if (parent) {
-        parent.style.display = "none";
-      }
-    }
-  });
-
   // 更新节区显示
-  const sectionsItem = document.querySelector('[data-item="sections"]');
-  if (sectionsItem && parsedData.elfData && parsedData.elfData.sectionHeaders) {
-    sectionsItem.textContent =
-      t("sections") + ` (${parsedData.elfData.sectionHeaders.length})`;
+  const elfSectionsGroup = document.querySelector(
+    '[data-item="elf_sections"]',
+  )?.parentElement;
+  const elfSectionsItem = document.querySelector('[data-item="elf_sections"]');
+  const elfSectionCount = document.getElementById("elfSectionCount");
+  const elfSectionsList = document.getElementById("elfSectionsList");
+
+  if (
+    elfSectionsItem &&
+    parsedData.elfData &&
+    parsedData.elfData.sectionHeaders
+  ) {
+    const sectionsCount = parsedData.elfData.sectionHeaders.length;
+
+    if (elfSectionCount) {
+      elfSectionCount.textContent = `(${sectionsCount})`;
+    }
+
     // 确保点击事件已绑定
-    sectionsItem.onclick = (e) => {
+    elfSectionsItem.onclick = (e) => {
       e.preventDefault();
       e.stopPropagation();
-      selectItem("sections");
+      selectItem("elf_sections");
     };
+
+    // 动态生成节区列表
+    if (elfSectionsList) {
+      elfSectionsList.innerHTML = "";
+
+      // 为每个节区创建树节点
+      parsedData.elfData.sectionHeaders.forEach((section, index) => {
+        const sectionName = section.name || `Section ${index}`;
+        const div = document.createElement("div");
+        div.className = "pe-tree-item pe-tree-leaf";
+        div.setAttribute("data-item", `elf_section_${index}`);
+        div.innerHTML = `📄 ${sectionName}`;
+        div.addEventListener("click", (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          selectItem(`elf_section_${index}`);
+        });
+        elfSectionsList.appendChild(div);
+      });
+
+      // 显示节区组
+      if (elfSectionsGroup) {
+        elfSectionsGroup.style.display = "";
+      }
+
+      console.log(`Generated ${sectionsCount} ELF section items`);
+    }
   }
 
   // 更新导出
-  const exportCount = document.getElementById("exportCount");
-  const exportsItem = document.querySelector('[data-item="exports"]');
-  if (exportCount && parsedData.elfData && parsedData.elfData.exports) {
+  const elfExportCount = document.getElementById("elfExportCount");
+  const elfExportsItem = document.querySelector('[data-item="elf_exports"]');
+
+  if (elfExportCount && parsedData.elfData && parsedData.elfData.exports) {
     const count = parsedData.elfData.exports.functions
       ? parsedData.elfData.exports.functions.length
       : 0;
-    exportCount.textContent = `(${count})`;
-    if (exportsItem) {
+    elfExportCount.textContent = `(${count})`;
+
+    if (elfExportsItem) {
       if (count === 0) {
-        exportsItem.style.display = "none";
+        elfExportsItem.style.display = "none";
       } else {
-        exportsItem.style.display = "";
+        elfExportsItem.style.display = "";
         // 确保点击事件已绑定
-        exportsItem.onclick = (e) => {
+        elfExportsItem.onclick = (e) => {
           e.preventDefault();
           e.stopPropagation();
-          selectItem("exports");
+          selectItem("elf_exports");
         };
       }
     }
   }
 
   // 更新导入
-  const importsList = document.getElementById("importsList");
-  const importCount = document.getElementById("importCount");
-  const importsGroup = document.querySelector(
-    '[data-item="imports"]',
+  const elfImportsList = document.getElementById("elfImportsList");
+  const elfImportCount = document.getElementById("elfImportCount");
+  const elfImportsGroup = document.querySelector(
+    '[data-item="elf_imports"]',
   )?.parentElement;
 
   console.log("ELF imports data:", parsedData.elfData?.imports);
-  console.log("importsList element:", importsList);
-  console.log("importsGroup element:", importsGroup);
 
-  if (importsList && parsedData.elfData) {
-    importsList.innerHTML = "";
+  if (elfImportsList && parsedData.elfData) {
+    elfImportsList.innerHTML = "";
 
     // 检查是否有导入数据
     if (parsedData.elfData.imports && parsedData.elfData.imports.length > 0) {
       let totalFunctions = 0;
+
+      console.log(
+        "Building imports tree with",
+        parsedData.elfData.imports.length,
+        "libraries",
+      );
 
       parsedData.elfData.imports.forEach((lib, index) => {
         const funcCount = lib.functions ? lib.functions.length : 0;
@@ -108,31 +147,33 @@ function buildELFTree(parsedData, selectItem) {
 
         const div = document.createElement("div");
         div.className = "pe-tree-item pe-tree-leaf";
-        div.setAttribute("data-item", `imports.${index}`);
+        div.setAttribute("data-item", `elf_imports.${index}`);
         div.innerHTML = `📚 ${lib.name} <span class="pe-tree-count">(${funcCount})</span>`;
         div.addEventListener("click", (e) => {
           e.preventDefault();
           e.stopPropagation();
-          selectItem(`imports.${index}`);
+          selectItem(`elf_imports.${index}`);
         });
-        importsList.appendChild(div);
+        elfImportsList.appendChild(div);
       });
 
-      if (importCount) {
-        importCount.textContent = `(${totalFunctions})`;
+      console.log("Total import functions:", totalFunctions);
+
+      if (elfImportCount) {
+        elfImportCount.textContent = `(${totalFunctions})`;
       }
 
       // 显示导入函数组
-      if (importsGroup) {
-        importsGroup.style.display = "";
+      if (elfImportsGroup) {
+        elfImportsGroup.style.display = "";
       }
     } else {
       // 没有导入数据，隐藏导入组
-      if (importCount) {
-        importCount.textContent = "(0)";
+      if (elfImportCount) {
+        elfImportCount.textContent = "(0)";
       }
-      if (importsGroup) {
-        importsGroup.style.display = "none";
+      if (elfImportsGroup) {
+        elfImportsGroup.style.display = "none";
       }
     }
   }
@@ -422,6 +463,168 @@ function showELFSections(
   );
 
   peDetails.appendChild(container);
+}
+
+/**
+ * 显示 ELF 单个节区详情
+ */
+function showELFSection(
+  sectionIndex,
+  parsedData,
+  peDetails,
+  detailsTitle,
+  createTable,
+  hideSearchBox,
+  showEmptyMessage,
+) {
+  if (!parsedData || !parsedData.elfData || !peDetails || !detailsTitle) {
+    return;
+  }
+
+  const elfData = parsedData.elfData;
+  if (
+    !elfData.sectionHeaders ||
+    sectionIndex >= elfData.sectionHeaders.length
+  ) {
+    hideSearchBox();
+    showEmptyMessage(t("sectionNotFound"));
+    return;
+  }
+
+  hideSearchBox();
+  const section = elfData.sectionHeaders[sectionIndex];
+  const sectionName = section.name || `Section ${sectionIndex}`;
+  detailsTitle.textContent = `${t("section")}: ${sectionName}`;
+  peDetails.innerHTML = "";
+
+  const container = document.createElement("div");
+  container.className = "pe-details-section";
+
+  // 节区基本信息
+  const basicRows = [
+    [t("sectionName"), sectionName, "", t("sectionNameDesc")],
+    [t("sectionIndex"), String(sectionIndex), "", t("sectionIndexDesc")],
+    [
+      t("type"),
+      `0x${(section.type || 0).toString(16)}`,
+      getSectionTypeDescription(section.type),
+      t("sectionTypeDesc"),
+    ],
+    [
+      t("flags"),
+      `0x${(section.flags || 0).toString(16)}`,
+      getSectionFlagsDescription(section.flags),
+      t("sectionFlagsDesc"),
+    ],
+    [
+      t("address"),
+      `0x${(section.addr || 0).toString(16)}`,
+      String(section.addr || 0),
+      t("virtualAddress"),
+    ],
+    [
+      t("offset"),
+      `0x${(section.offset || 0).toString(16)}`,
+      String(section.offset || 0),
+      t("fileOffset"),
+    ],
+    [
+      t("size"),
+      String(section.size || 0),
+      `0x${(section.size || 0).toString(16)}`,
+      t("sectionSize"),
+    ],
+    [
+      t("alignment"),
+      String(section.addralign || 0),
+      `0x${(section.addralign || 0).toString(16)}`,
+      t("sectionAlignment"),
+    ],
+  ];
+
+  if (section.link !== undefined) {
+    basicRows.push([
+      t("link"),
+      String(section.link),
+      "",
+      t("linkedSectionIndex"),
+    ]);
+  }
+
+  if (section.info !== undefined) {
+    basicRows.push([t("info"), String(section.info), "", t("sectionInfo")]);
+  }
+
+  if (section.entsize !== undefined && section.entsize > 0) {
+    basicRows.push([
+      t("entrySize"),
+      String(section.entsize),
+      `0x${section.entsize.toString(16)}`,
+      t("entrySizeDesc"),
+    ]);
+  }
+
+  container.appendChild(
+    createTable(
+      t("sectionDetails"),
+      [t("field"), t("value"), t("hex"), t("description")],
+      basicRows,
+      ["", "pe-details-value", "pe-details-hex", ""],
+    ),
+  );
+
+  peDetails.appendChild(container);
+}
+
+/**
+ * 获取节区类型描述
+ */
+function getSectionTypeDescription(type) {
+  if (type === undefined) return "Unknown";
+
+  const types = {
+    0: "SHT_NULL (Inactive)",
+    1: "SHT_PROGBITS (Program data)",
+    2: "SHT_SYMTAB (Symbol table)",
+    3: "SHT_STRTAB (String table)",
+    4: "SHT_RELA (Relocation entries with addends)",
+    5: "SHT_HASH (Symbol hash table)",
+    6: "SHT_DYNAMIC (Dynamic linking information)",
+    7: "SHT_NOTE (Notes)",
+    8: "SHT_NOBITS (BSS)",
+    9: "SHT_REL (Relocation entries)",
+    10: "SHT_SHLIB (Reserved)",
+    11: "SHT_DYNSYM (Dynamic linker symbol table)",
+    14: "SHT_INIT_ARRAY (Array of constructors)",
+    15: "SHT_FINI_ARRAY (Array of destructors)",
+    16: "SHT_PREINIT_ARRAY (Array of pre-constructors)",
+    17: "SHT_GROUP (Section group)",
+    18: "SHT_SYMTAB_SHNDX (Extended section indices)",
+  };
+
+  return types[type] || `Unknown (0x${type.toString(16)})`;
+}
+
+/**
+ * 获取节区标志描述
+ */
+function getSectionFlagsDescription(flags) {
+  if (flags === undefined || flags === 0) return "None";
+
+  const flagDescs = [];
+
+  if (flags & 0x1) flagDescs.push("WRITE");
+  if (flags & 0x2) flagDescs.push("ALLOC");
+  if (flags & 0x4) flagDescs.push("EXECINSTR");
+  if (flags & 0x10) flagDescs.push("MERGE");
+  if (flags & 0x20) flagDescs.push("STRINGS");
+  if (flags & 0x40) flagDescs.push("INFO_LINK");
+  if (flags & 0x80) flagDescs.push("LINK_ORDER");
+  if (flags & 0x100) flagDescs.push("OS_NONCONFORMING");
+  if (flags & 0x200) flagDescs.push("GROUP");
+  if (flags & 0x400) flagDescs.push("TLS");
+
+  return flagDescs.length > 0 ? flagDescs.join(" | ") : "None";
 }
 
 /**

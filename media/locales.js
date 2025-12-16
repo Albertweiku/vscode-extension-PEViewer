@@ -412,6 +412,23 @@ const locales = {
     offset: "偏移",
     description: "描述",
     serialNumber: "序号",
+
+    // ELF 节区详情
+    section: "节区",
+    sectionDetails: "节区详情",
+    sectionNotFound: "节区未找到",
+    sectionNameDesc: "节区的名称",
+    sectionIndexDesc: "节区在节区表中的索引",
+    sectionTypeDesc: "节区的类型",
+    sectionFlagsDesc: "节区的标志位",
+    sectionAlignment: "对齐",
+    linkedSectionIndex: "关联的节区索引",
+    sectionInfo: "附加信息",
+    entrySize: "条目大小",
+    entrySizeDesc: "每个条目的大小（如果包含固定大小的条目）",
+    flags: "标志",
+    link: "链接",
+    info: "信息",
   },
   en: {
     // HTML文本
@@ -757,6 +774,89 @@ const locales = {
     clickToSaveIcon: "Click to save icon",
     bitSuffix: " bit",
     versionInfoFields: "Version Information Fields",
+
+    // ELF File Related
+    elfViewerTitle: "ELF Viewer - ELF File Structure",
+    elfOverview: "ELF Overview",
+    elfFileOverview: "ELF File Overview",
+    elfHeaderInfo: "ELF Header Information",
+    architecture: "Architecture",
+    processorBits: "Processor Bits",
+    byteOrder: "Byte Order",
+    dataEncoding: "Data Encoding",
+    littleEndian: "Little Endian",
+    bigEndian: "Big Endian",
+    version: "Version",
+    elfVersion: "ELF Version",
+    fileType: "File Type",
+    elfFileType: "ELF File Type",
+    machineType: "Machine Type",
+    targetArch: "Target Architecture",
+    entryPoint: "Entry Point",
+    entryPointAddress: "Program Entry Address",
+    sectionInfo: "Section Information",
+    sectionsFirst10: "Sections (First 10)",
+    sectionName: "Section Name",
+    sectionSize: "Size",
+    sectionAddress: "Address",
+    sectionType: "Type",
+    sectionIndex: "Index",
+    sectionOffset: "Offset",
+    allSections: "All Sections",
+    sectionList: "Section List",
+    exportSymbolStats: "Export Symbol Statistics",
+    exportSymbolCount: "Export Symbol Count",
+    exportSymbolList: "Export Symbol List",
+    symbolName: "Symbol Name",
+    symbolAddress: "Address",
+    symbolSize: "Size",
+    symbolType: "Type",
+    symbolBinding: "Binding",
+    symbolIndex: "Index",
+    dependencyLibStats: "Dependency Library Statistics",
+    dependencyLibCount: "Dependency Library Count",
+    importSymbolTotal: "Total Import Symbols",
+    dependencyLibList: "Dependency Library List",
+    libName: "Library Name",
+    importSymbolCount: "Import Symbol Count",
+    statsItem: "Statistics Item",
+    statsValue: "Value",
+    clickLeftTreeForDetails: "Click on the left tree for details",
+    noSymbols: "No Symbols",
+    importSymbolList: "Import Symbol List",
+    symbolVersion: "Version",
+    dependencyLib: "Dependency Libraries",
+    noSectionInfo: "No section information found",
+    noExportSymbols: "No export symbols found",
+    noDependencyLibs: "No dependency libraries found",
+    noImportSymbolsInLib: "This library has no import symbols",
+    totalSections: "{count} sections in total",
+    relocatable: "Relocatable File",
+    executable: "Executable File",
+    sharedObject: "Shared Object File",
+    coreFile: "Core File",
+    symbolCount: "Symbol Count",
+    type: "Type",
+    offset: "Offset",
+    description: "Description",
+    serialNumber: "No.",
+
+    // ELF Section Details
+    section: "Section",
+    sectionDetails: "Section Details",
+    sectionNotFound: "Section not found",
+    sectionNameDesc: "Name of the section",
+    sectionIndexDesc: "Index of the section in the section table",
+    sectionTypeDesc: "Type of the section",
+    sectionFlagsDesc: "Section flags",
+    sectionAlignment: "Alignment",
+    linkedSectionIndex: "Linked section index",
+    sectionInfo: "Additional information",
+    entrySize: "Entry Size",
+    entrySizeDesc: "Size of each entry (if contains fixed-size entries)",
+    flags: "Flags",
+    link: "Link",
+    info: "Info",
   },
 };
 
@@ -805,6 +905,22 @@ function updateUILanguage() {
   const exportsText = document.getElementById("exportsText");
   if (exportsText) {
     exportsText.textContent = t("exports");
+  }
+  const elfExportsText = document.getElementById("elfExportsText");
+  if (elfExportsText) {
+    elfExportsText.textContent = t("exports");
+  }
+  const elfImportsText = document.getElementById("elfImportsText");
+  if (elfImportsText) {
+    elfImportsText.textContent = t("imports");
+  }
+  const elfHeaderText = document.getElementById("elfHeaderText");
+  if (elfHeaderText) {
+    elfHeaderText.textContent = t("elfOverview");
+  }
+  const elfSectionsText = document.getElementById("elfSectionsText");
+  if (elfSectionsText) {
+    elfSectionsText.textContent = t("sections");
   }
   const importsText = document.getElementById("importsText");
   if (importsText) {
