@@ -7,7 +7,7 @@ export interface LibArchiveMember {
   timestamp: number;
   size: number;
   offset: number;
-  data?: Buffer;
+  data?: number[]; // 改为数组以便JSON序列化
   uid?: number;
   gid?: number;
   mode?: number;
@@ -212,20 +212,22 @@ export async function parseLibArchive(buffer: Buffer): Promise<LibArchiveData> {
       console.warn(`Member data exceeds buffer length at offset ${offset}`);
       break;
     }
-    member.data = buffer.subarray(member.offset, dataEnd);
+    const dataBuffer = buffer.subarray(member.offset, dataEnd);
+    // 转换为数组以便JSON序列化
+    member.data = Array.from(dataBuffer);
 
     // 处理特殊成员
     if (member.name === "/") {
       // 第一链接器成员（符号索引）
-      firstLinkerSymbols = parseFirstLinkerMember(member.data);
+      firstLinkerSymbols = parseFirstLinkerMember(dataBuffer);
     } else if (member.name === "//") {
       // 长文件名表
-      longNames = parseLongNames(member.data);
+      longNames = parseLongNames(dataBuffer);
     } else if (member.name === "//" || member.name.startsWith("/")) {
       // 可能是第二链接器成员或长文件名引用
       if (member.name === "/" && firstLinkerSymbols !== null) {
         // 第二个 "/" 是第二链接器成员
-        secondLinkerSymbols = parseSecondLinkerMember(member.data);
+        secondLinkerSymbols = parseSecondLinkerMember(dataBuffer);
       } else if (member.name.match(/^\/\d+$/)) {
         // 长文件名引用 /数字
         const index = parseInt(member.name.substring(1), 10);

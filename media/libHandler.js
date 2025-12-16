@@ -6,7 +6,7 @@
  * 构建 LIB 文件的树形结构
  */
 function buildLibTree(parsedData) {
-  console.log("Building LIB tree structure");
+  console.log("Building LIB tree structure", parsedData);
 
   // 更新页面标题
   const treeHeader = document.getElementById("peTreeHeader");
@@ -22,6 +22,12 @@ function buildLibTree(parsedData) {
   const elfTreeStructure = document.getElementById("elfTreeStructure");
   const libTreeStructure = document.getElementById("libTreeStructure");
 
+  console.log("Elements found:", {
+    peTreeStructure: !!peTreeStructure,
+    elfTreeStructure: !!elfTreeStructure,
+    libTreeStructure: !!libTreeStructure,
+  });
+
   if (peTreeStructure) {
     peTreeStructure.style.display = "none";
   }
@@ -35,34 +41,44 @@ function buildLibTree(parsedData) {
   }
 
   // 清空现有内容
-  libTreeStructure.innerHTML = "";
+  if (libTreeStructure) {
+    libTreeStructure.innerHTML = "";
+  }
 
   // 确保存在 libData
   if (!parsedData || !parsedData.libData) {
-    console.error("No LIB data found");
+    console.error("No LIB data found", parsedData);
     return;
   }
 
   const libData = parsedData.libData;
+  console.log("LIB data:", libData);
 
   // 创建 LIB 文件头部节点
   const libHeader = document.createElement("div");
-  libHeader.className = "tree-item";
-  libHeader.innerHTML = `<span id="lib_header" class="tree-label clickable">${t(
-    "libHeader",
-  )}</span>`;
+  libHeader.className = "pe-tree-item pe-tree-top-level";
+  libHeader.setAttribute("data-item", "lib_header");
+  libHeader.innerHTML = `📁 <span id="lib_header">${t("libHeader")}</span>`;
 
   // 创建成员列表节点
-  const libMembers = document.createElement("div");
-  libMembers.className = "tree-item";
+  const libMembers = document.createElement("details");
+  libMembers.className = "pe-tree-group";
+  libMembers.open = true;
   const memberCount = libData.members ? libData.members.length : 0;
-  libMembers.innerHTML = `<span class="tree-label">${t("libMembers")} (${memberCount})</span>`;
+  const summary = document.createElement("summary");
+  summary.className = "pe-tree-item";
+  summary.setAttribute("data-item", "lib_members");
+  summary.innerHTML = `📂 <span>${t("libMembers")}</span> <span class="pe-tree-count">(${
+    memberCount
+  })</span>`;
+  libMembers.appendChild(summary);
 
-  const membersList = document.createElement("ul");
+  const membersList = document.createElement("div");
   membersList.id = "libMembersList";
-  membersList.className = "tree-children";
+  membersList.className = "pe-tree-children";
 
-  // 添加所有成员
+  // 添加所有成员，并保存到数组中以便后续访问
+  const normalMembers = [];
   if (libData.members) {
     libData.members.forEach((member, index) => {
       // 跳过特殊成员（链接器成员和长文件名表）
@@ -70,19 +86,14 @@ function buildLibTree(parsedData) {
         return;
       }
 
-      const memberItem = document.createElement("li");
-      memberItem.className = "tree-item";
-      memberItem.innerHTML = `<span id="lib_member_${
-        index
-      }" class="tree-label clickable">${member.name}</span>`;
-      membersList.appendChild(memberItem);
+      const memberIndex = normalMembers.length;
+      normalMembers.push(member);
 
-      // 添加点击事件
-      document
-        .getElementById(`lib_member_${index}`)
-        .addEventListener("click", function () {
-          showLibMember(member, index);
-        });
+      const memberItem = document.createElement("div");
+      memberItem.className = "pe-tree-item pe-tree-leaf";
+      memberItem.setAttribute("data-item", `lib_member_${memberIndex}`);
+      memberItem.innerHTML = `📄 <span>${member.name}</span>`;
+      membersList.appendChild(memberItem);
     });
   }
 
@@ -95,25 +106,32 @@ function buildLibTree(parsedData) {
   // 创建符号列表节点（如果有）
   if (libData.symbols && Object.keys(libData.symbols).length > 0) {
     const libSymbols = document.createElement("div");
-    libSymbols.className = "tree-item";
+    libSymbols.className = "pe-tree-item pe-tree-top-level";
+    libSymbols.setAttribute("data-item", "lib_symbols");
     const symbolCount = Object.keys(libData.symbols).length;
-    libSymbols.innerHTML = `<span id="lib_symbols" class="tree-label clickable">${t(
+    libSymbols.innerHTML = `📊 <span>${t(
       "libSymbols",
-    )} (${symbolCount})</span>`;
+    )}</span> <span class="pe-tree-count">(${symbolCount})</span>`;
 
     libTreeStructure.appendChild(libSymbols);
-
-    // 添加符号点击事件
-    document
-      .getElementById("lib_symbols")
-      ?.addEventListener("click", function () {
-        showLibSymbols(libData.symbols);
-      });
   }
 
-  // 添加 LIB 文件头部点击事件
-  document.getElementById("lib_header").addEventListener("click", function () {
-    showLibHeader(libData);
+  // 添加点击事件（使用事件委托）
+  libTreeStructure.addEventListener("click", function (e) {
+    const target = e.target.closest(".pe-tree-item");
+    if (!target) return;
+
+    const itemId = target.getAttribute("data-item");
+    if (itemId === "lib_header") {
+      showLibHeader(libData);
+    } else if (itemId === "lib_symbols") {
+      showLibSymbols(libData.symbols);
+    } else if (itemId && itemId.startsWith("lib_member_")) {
+      const index = parseInt(itemId.replace("lib_member_", ""));
+      if (index < normalMembers.length) {
+        showLibMember(normalMembers[index], index);
+      }
+    }
   });
 
   // 默认显示 LIB 头部信息
@@ -124,7 +142,7 @@ function buildLibTree(parsedData) {
  * 显示 LIB 文件头部信息
  */
 function showLibHeader(libData) {
-  const detailsContent = document.getElementById("detailsContent");
+  const detailsContent = document.getElementById("peDetails");
   let html = `<h2>${t("libHeader")}</h2>`;
 
   html += "<table>";
@@ -168,7 +186,7 @@ function showLibHeader(libData) {
  * 显示成员详细信息
  */
 function showLibMember(member, index) {
-  const detailsContent = document.getElementById("detailsContent");
+  const detailsContent = document.getElementById("peDetails");
   let html = `<h2>${t("libMemberDetails")}: ${member.name}</h2>`;
 
   html += "<table>";
@@ -249,7 +267,7 @@ function showLibMember(member, index) {
  * 显示符号索引表
  */
 function showLibSymbols(symbols) {
-  const detailsContent = document.getElementById("detailsContent");
+  const detailsContent = document.getElementById("peDetails");
   let html = `<h2>${t("libSymbols")} (${Object.keys(symbols).length})</h2>`;
 
   html += "<table>";
