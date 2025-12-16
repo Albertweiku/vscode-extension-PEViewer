@@ -260,9 +260,11 @@ function showPEOverview(
 
   hideSearchBox();
 
-  // 检测位数
+  // 检测位数和机器类型
   let is64Bit = false;
   let bitInfo = t("bit32");
+  let machineDesc = "Unknown";
+
   if (
     parsedData.nt_headers &&
     parsedData.nt_headers.OptionalHeader &&
@@ -275,17 +277,23 @@ function showPEOverview(
     }
   }
 
+  // 获取机器类型描述
+  if (parsedData.nt_headers && parsedData.nt_headers.FileHeader) {
+    const machineType = parsedData.nt_headers.FileHeader.Machine || 0;
+    machineDesc = getMachineTypeFullInfo(machineType);
+  }
+
   detailsTitle.textContent = `${t("peOverview")} (${bitInfo})`;
   peDetails.innerHTML = "";
 
   const container = document.createElement("div");
   container.className = "pe-details-section";
 
-  // 添加位数突出显示
+  // 添加位数和架构突出显示
   const archHeader = document.createElement("h4");
   archHeader.innerHTML = `${t("architectureInfo")}: <span style="color: ${
     is64Bit ? "#4CAF50" : "#2196F3"
-  }; font-weight: bold;">${bitInfo} ${t("bitPEFile")}</span>`;
+  }; font-weight: bold;">${machineDesc}</span>`;
   container.appendChild(archHeader);
 
   // DOS头信息
@@ -325,12 +333,11 @@ function showPEOverview(
     ]);
 
     if (parsedData.nt_headers.FileHeader) {
+      const machineType = parsedData.nt_headers.FileHeader.Machine || 0;
       ntRows.push([
         t("machineType"),
-        String(parsedData.nt_headers.FileHeader.Machine || "N/A"),
-        `0x${(parsedData.nt_headers.FileHeader.Machine || 0)
-          .toString(16)
-          .toUpperCase()}`,
+        getMachineTypeFullInfo(machineType),
+        `0x${machineType.toString(16).toUpperCase()}`,
         t("targetCPU"),
       ]);
       ntRows.push([

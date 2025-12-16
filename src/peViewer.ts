@@ -246,6 +246,13 @@ export class BinaryViewerProvider implements vscode.CustomEditorProvider<BinaryD
     const localesUri = webview.asWebviewUri(
       vscode.Uri.joinPath(this._context.extensionUri, "media", "locales.js"),
     );
+    const machineTypesUri = webview.asWebviewUri(
+      vscode.Uri.joinPath(
+        this._context.extensionUri,
+        "media",
+        "machineTypes.js",
+      ),
+    );
     const peHandlerUri = webview.asWebviewUri(
       vscode.Uri.joinPath(this._context.extensionUri, "media", "peHandler.js"),
     );
@@ -286,6 +293,7 @@ export class BinaryViewerProvider implements vscode.CustomEditorProvider<BinaryD
       .replace(/\$\{styleVSCodeUri\}/g, styleVSCodeUri.toString())
       .replace(/\$\{styleMainUri\}/g, styleMainUri.toString())
       .replace(/\$\{localesUri\}/g, localesUri.toString())
+      .replace(/\$\{machineTypesUri\}/g, machineTypesUri.toString())
       .replace(/\$\{peHandlerUri\}/g, peHandlerUri.toString())
       .replace(/\$\{elfHandlerUri\}/g, elfHandlerUri.toString())
       .replace(/\$\{libHandlerUri\}/g, libHandlerUri.toString())

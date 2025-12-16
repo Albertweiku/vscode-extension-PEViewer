@@ -1887,11 +1887,20 @@
       for (const [key, val] of Object.entries(value)) {
         if (typeof val === "number" || typeof val === "bigint") {
           const numVal = Number(val);
-          rows.push([
-            key,
-            String(numVal),
-            `0x${numVal.toString(16).toUpperCase()}`,
-          ]);
+          // 特殊处理Machine字段，显示架构描述和代码
+          if (key === "Machine") {
+            rows.push([
+              key,
+              getMachineTypeFullInfo(numVal),
+              `0x${numVal.toString(16).toUpperCase()}`,
+            ]);
+          } else {
+            rows.push([
+              key,
+              String(numVal),
+              `0x${numVal.toString(16).toUpperCase()}`,
+            ]);
+          }
         } else if (typeof val === "string") {
           rows.push([key, val, "-"]);
         } else if (Array.isArray(val)) {
