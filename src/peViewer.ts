@@ -240,7 +240,7 @@ export class BinaryViewerProvider implements vscode.CustomEditorProvider<BinaryD
    */
   private getHtmlForWebview(webview: vscode.Webview): string {
     // Local path to script and css for the webview
-    const scriptUri = webview.asWebviewUri(
+    const peViewerUri = webview.asWebviewUri(
       vscode.Uri.joinPath(this._context.extensionUri, "media", "peViewer.js"),
     );
     const localesUri = webview.asWebviewUri(
@@ -251,6 +251,13 @@ export class BinaryViewerProvider implements vscode.CustomEditorProvider<BinaryD
         this._context.extensionUri,
         "media",
         "machineTypes.js",
+      ),
+    );
+    const resourceHandlerUri = webview.asWebviewUri(
+      vscode.Uri.joinPath(
+        this._context.extensionUri,
+        "media",
+        "resourceHandler.js",
       ),
     );
     const peHandlerUri = webview.asWebviewUri(
@@ -294,10 +301,11 @@ export class BinaryViewerProvider implements vscode.CustomEditorProvider<BinaryD
       .replace(/\$\{styleMainUri\}/g, styleMainUri.toString())
       .replace(/\$\{localesUri\}/g, localesUri.toString())
       .replace(/\$\{machineTypesUri\}/g, machineTypesUri.toString())
+      .replace(/\$\{resourceHandlerUri\}/g, resourceHandlerUri.toString())
       .replace(/\$\{peHandlerUri\}/g, peHandlerUri.toString())
       .replace(/\$\{elfHandlerUri\}/g, elfHandlerUri.toString())
       .replace(/\$\{libHandlerUri\}/g, libHandlerUri.toString())
-      .replace(/\$\{scriptUri\}/g, scriptUri.toString());
+      .replace(/\$\{peViewerUri\}/g, peViewerUri.toString());
   }
 }
 

@@ -227,10 +227,16 @@ function buildPETree(parsedData, selectItem, templates) {
 
     // 控制资源节点的显示/隐藏
     const resourcesGroup = resourcesList?.closest("details.pe-tree-group");
+    console.log("[peHandler] totalResources:", totalResources);
+    console.log("[peHandler] resourcesGroup:", resourcesGroup);
     if (resourcesGroup) {
       if (totalResources === 0) {
+        console.log(
+          "[peHandler] Hiding resources group (totalResources === 0)",
+        );
         resourcesGroup.style.display = "none";
       } else {
+        console.log("[peHandler] Showing resources group");
         resourcesGroup.style.display = "";
       }
     }
