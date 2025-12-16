@@ -1,7 +1,8 @@
 // 'vscode' 模块包含 VS Code 扩展性 API
 // '在下面的代码中导入模块并使用别名 vscode 引用它
 import * as vscode from "vscode";
-import { PEEditorProvider } from "./peViewer";
+
+import { BinaryViewerProvider } from "./peViewer";
 
 // 当扩展被激活时调用此方法
 // 扩展在第一次执行命令时被激活
@@ -11,7 +12,7 @@ export function activate(context: vscode.ExtensionContext) {
   console.log('恭喜，你的扩展 "PEViewer" 现在已激活！');
 
   // 注册我们的自定义编辑器提供者
-  context.subscriptions.push(PEEditorProvider.register(context));
+  context.subscriptions.push(BinaryViewerProvider.register(context));
 
   // 命令已在 package.json 文件中定义
   // 现在使用 registerCommand 提供命令的实现
