@@ -2,7 +2,6 @@
 
 一个专业的 VS Code 扩展，用于查看和分析 Windows PE（Portable Executable）文件和 Linux ELF（Executable and Linkable Format）文件结构。支持导入/导出符号解析、资源查看、函数名自动解码等高级功能。
 
-
 ![PEViewer界面截图](https://raw.githubusercontent.com/easyatm/vscode-extension-PEViewer/main/media/ScreenShot_2025-12-07_010545_842.png)
 
 ## 功能特性
@@ -178,6 +177,7 @@ npm run format
 ### 1.0.251206 (当前版本)
 
 #### 新增功能
+
 - ✨ **ELF 文件完整支持**：新增对 Linux .so 共享库的完整解析
 - 📊 **多架构支持**：x86、86-64、ARM、AArch64、RISC-V 等
 - 📚 **智能依赖库解析**：支持 DT_NEEDED 库名解析
@@ -187,6 +187,7 @@ npm run format
 - 📄 **分页显示**：大量函数列表支持分页浏览（每页100条）
 
 #### 技术改进
+
 - ⚡ 增强的直接 ELF 符号解析
 - 🔄 多级回退解析策略
 - 🛡️ 鲁棒的错误处理

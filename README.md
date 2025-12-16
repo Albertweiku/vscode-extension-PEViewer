@@ -4,7 +4,6 @@
 
 A professional VS Code extension for viewing and analyzing Windows PE (Portable Executable) and Linux ELF (Executable and Linkable Format) file structures. Features advanced capabilities including import/export symbol parsing, resource viewing, and automatic function name demangling.
 
-
 ![PEViewer Screenshot](./media/image.png)
 
 ## Features
@@ -75,6 +74,7 @@ A professional VS Code extension for viewing and analyzing Windows PE (Portable 
 4. Select the downloaded `.vsix` file
 
 #### New Features
+
 - ✨ **Complete ELF File Support**: Full parsing for Linux .so shared libraries
 - 📊 **Multi-architecture**: x86, x86-64, ARM, AArch64, RISC-V, and more
 - 📚 **Smart Dependency Parsing**: DT_NEEDED library name resolution
@@ -84,6 +84,7 @@ A professional VS Code extension for viewing and analyzing Windows PE (Portable 
 - 📄 **Pagination**: Browse large function lists (100 items per page)
 
 #### Technical Improvements
+
 - ⚡ Enhanced direct ELF symbol parsing
 - 🔄 Multi-level fallback parsing strategies
 - 🛡️ Robust error handling
