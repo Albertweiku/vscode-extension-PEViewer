@@ -2,7 +2,10 @@
 import * as elfy from "elfy";
 import { promisify } from "util";
 
-import { parseELFSymbolsDirect } from "./elfParserEnhanced";
+import {
+  parseELFDynamicSection,
+  parseELFSymbolsDirect,
+} from "./elfParserEnhanced";
 
 const execAsync = promisify(exec);
 
@@ -116,7 +119,7 @@ export async function parseELF(fileData: Buffer): Promise<ExtendedELFData> {
     }
 
     // 解析导入和导出
-    extendedData.imports = parseELFImports(extendedData);
+    extendedData.imports = parseELFImports(extendedData, fileData);
     extendedData.exports = parseELFExports(extendedData);
 
     console.log("Parse results:", {
@@ -163,7 +166,7 @@ export async function parseELF(fileData: Buffer): Promise<ExtendedELFData> {
           console.log("Direct parsing found imports:", importSymbols.length);
 
           // 重新解析导入（现在有了 dynamicSymbols）
-          extendedData.imports = parseELFImports(extendedData);
+          extendedData.imports = parseELFImports(extendedData, fileData);
         }
       } catch (err) {
         console.log("Direct parsing failed:", err);
@@ -195,7 +198,10 @@ export async function parseELF(fileData: Buffer): Promise<ExtendedELFData> {
 /**
  * 解析ELF导入表
  */
-function parseELFImports(elfData: ExtendedELFData): ELFImportLibrary[] {
+function parseELFImports(
+  elfData: ExtendedELFData,
+  fileData?: Buffer,
+): ELFImportLibrary[] {
   const imports: ELFImportLibrary[] = [];
   const libraryMap = new Map<string, ELFImportFunction[]>();
   const neededLibs: string[] = [];
@@ -213,11 +219,25 @@ function parseELFImports(elfData: ExtendedELFData): ELFImportLibrary[] {
     }
   }
 
+  // 如果 elfy 没有解析到 DT_NEEDED，使用增强解析器
+  if (neededLibs.length === 0 && fileData) {
+    const dynamicLibs = parseELFDynamicSection(fileData);
+    if (dynamicLibs.needed.length > 0) {
+      neededLibs.push(...dynamicLibs.needed);
+      dynamicLibs.needed.forEach((lib) => libraryMap.set(lib, []));
+    }
+  }
+
   console.log("Found DT_NEEDED libraries:", neededLibs);
 
   // 收集所有未定义的符号（导入符号）
   const undefinedSymbols: ELFImportFunction[] = [];
   if (elfData.dynamicSymbols && elfData.dynamicSymbols.length > 0) {
+    console.log(
+      "Scanning",
+      elfData.dynamicSymbols.length,
+      "dynamic symbols for imports",
+    );
     for (const symbol of elfData.dynamicSymbols) {
       // UND (undefined) 类型的符号表示导入
       if (symbol.shndx === 0 && symbol.name && symbol.name !== "") {
@@ -229,7 +249,13 @@ function parseELFImports(elfData: ExtendedELFData): ELFImportLibrary[] {
     }
   }
 
-  console.log("Found undefined symbols:", undefinedSymbols.length);
+  console.log("Found undefined symbols (imports):", undefinedSymbols.length);
+  if (undefinedSymbols.length > 0) {
+    console.log(
+      "First few imports:",
+      undefinedSymbols.slice(0, 5).map((s) => s.name),
+    );
+  }
 
   // 如果有库列表和未定义符号，将符号分配到库
   if (neededLibs.length > 0 && undefinedSymbols.length > 0) {
@@ -237,7 +263,7 @@ function parseELFImports(elfData: ExtendedELFData): ELFImportLibrary[] {
     if (neededLibs.length === 1) {
       libraryMap.set(neededLibs[0], undefinedSymbols);
     } else {
-      // 多个库的情况：尝试通过版本信息匹配，否则放到第一个库或创建"未分类"组
+      // 多个库的情况：尝试通过版本信息匹配
       const versionedSymbols = new Map<string, ELFImportFunction[]>();
       const unversionedSymbols: ELFImportFunction[] = [];
 
@@ -266,10 +292,22 @@ function parseELFImports(elfData: ExtendedELFData): ELFImportLibrary[] {
         }
       }
 
-      // 将未分类的符号平均分配或放到一个通用组
+      // 将未分类的符号分配到库
+      // 由于无法确定符号属于哪个库,我们将它们显示在每个库下
+      // 或者创建一个包含所有库名的组
       if (unversionedSymbols.length > 0) {
-        // 创建一个"导入符号"通用组
-        const generalLibName = "Imported Symbols";
+        // 策略1: 如果有很多库,为每个库单独列出并标注"可能来自"
+        // 策略2: 平均分配到各个库
+        // 策略3: 创建一个通用组,但列出所有可能的库
+
+        // 这里使用策略3: 创建带库列表的通用组名
+        const libListStr = neededLibs.join(", ");
+        const generalLibName =
+          unversionedSymbols.length > 50 && neededLibs.length > 3
+            ? `Imported from ${neededLibs.length} libraries (${neededLibs
+                .slice(0, 3)
+                .join(", ")}, ...)`
+            : `Imported from: ${libListStr}`;
         libraryMap.set(generalLibName, unversionedSymbols);
       }
     }
@@ -286,7 +324,13 @@ function parseELFImports(elfData: ExtendedELFData): ELFImportLibrary[] {
     });
   }
 
-  console.log("Parsed imports:", imports.length, "libraries");
+  console.log("Parsed imports result:", imports.length, "libraries");
+  imports.forEach((lib, idx) => {
+    console.log(
+      `  Library ${idx}: ${lib.name} with ${lib.functions.length} functions`,
+    );
+  });
+
   return imports;
 }
 

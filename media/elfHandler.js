@@ -102,9 +102,22 @@ function buildELFTree(parsedData, selectItem) {
     if (parsedData.elfData.imports && parsedData.elfData.imports.length > 0) {
       let totalFunctions = 0;
 
+      console.log(
+        "Building imports tree with",
+        parsedData.elfData.imports.length,
+        "libraries",
+      );
+
       parsedData.elfData.imports.forEach((lib, index) => {
         const funcCount = lib.functions ? lib.functions.length : 0;
         totalFunctions += funcCount;
+
+        console.log(
+          `Import library ${index}:`,
+          lib.name,
+          "functions:",
+          funcCount,
+        );
 
         const div = document.createElement("div");
         div.className = "pe-tree-item pe-tree-leaf";
@@ -118,6 +131,8 @@ function buildELFTree(parsedData, selectItem) {
         importsList.appendChild(div);
       });
 
+      console.log("Total import functions:", totalFunctions);
+
       if (importCount) {
         importCount.textContent = `(${totalFunctions})`;
       }
@@ -125,9 +140,11 @@ function buildELFTree(parsedData, selectItem) {
       // 显示导入函数组
       if (importsGroup) {
         importsGroup.style.display = "";
+        console.log("Imports group shown");
       }
     } else {
       // 没有导入数据，隐藏导入组
+      console.log("No imports found, hiding imports group");
       if (importCount) {
         importCount.textContent = "(0)";
       }

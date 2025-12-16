@@ -16,6 +16,13 @@ const ELFDATA2MSB = 2; // 大端
 const SHT_SYMTAB = 2; // 符号表
 const SHT_DYNSYM = 11; // 动态符号表
 const SHT_STRTAB = 3; // 字符串表
+const SHT_DYNAMIC = 6; // 动态链接信息
+
+// 动态节区标签
+const DT_NULL = 0;
+const DT_NEEDED = 1; // 需要的库
+const DT_STRTAB = 5; // 字符串表地址
+const DT_STRSZ = 10; // 字符串表大小
 
 // 符号绑定
 const STB_LOCAL = 0;
@@ -47,6 +54,144 @@ export interface ParsedSymbol {
   type: string;
   binding: string;
   shndx: number; // 节区索引，0 表示 UND (导入符号)
+}
+
+export interface ELFDynamicLibraries {
+  needed: string[]; // DT_NEEDED 库列表
+}
+
+/**
+ * 解析 ELF 动态节区，提取 DT_NEEDED 库依赖
+ */
+export function parseELFDynamicSection(fileData: Buffer): ELFDynamicLibraries {
+  try {
+    // 检查 ELF 魔数
+    if (
+      fileData.length < 64 ||
+      fileData[0] !== 0x7f ||
+      fileData[1] !== 0x45 || // 'E'
+      fileData[2] !== 0x4c || // 'L'
+      fileData[3] !== 0x46
+    ) {
+      // 'F'
+      return { needed: [] };
+    }
+
+    const elfClass = fileData[EI_CLASS];
+    const elfData = fileData[EI_DATA];
+    const is64Bit = elfClass === ELFCLASS64;
+    const isLittleEndian = elfData === ELFDATA2LSB;
+
+    // 读取节区头表偏移和数量
+    let e_shoff: number;
+    let e_shnum: number;
+    let e_shentsize: number;
+    let e_shstrndx: number;
+
+    if (is64Bit) {
+      e_shoff = readNumber(fileData, 40, 8, isLittleEndian);
+      e_shentsize = readNumber(fileData, 58, 2, isLittleEndian);
+      e_shnum = readNumber(fileData, 60, 2, isLittleEndian);
+      e_shstrndx = readNumber(fileData, 62, 2, isLittleEndian);
+    } else {
+      e_shoff = readNumber(fileData, 32, 4, isLittleEndian);
+      e_shentsize = readNumber(fileData, 46, 2, isLittleEndian);
+      e_shnum = readNumber(fileData, 48, 2, isLittleEndian);
+      e_shstrndx = readNumber(fileData, 50, 2, isLittleEndian);
+    }
+
+    if (e_shoff === 0 || e_shnum === 0) {
+      return { needed: [] };
+    }
+
+    // 读取所有节区头
+    const sections: any[] = [];
+    for (let i = 0; i < e_shnum; i++) {
+      const shOffset = e_shoff + i * e_shentsize;
+      const section = parseSectionHeader(
+        fileData,
+        shOffset,
+        is64Bit,
+        isLittleEndian,
+      );
+      sections.push(section);
+    }
+
+    // 读取节区名称字符串表
+    const shstrtab = sections[e_shstrndx];
+    if (!shstrtab) {
+      return { needed: [] };
+    }
+
+    // 查找 .dynamic 和 .dynstr 节区
+    let dynamicSection: any = null;
+    let dynstrSection: any = null;
+
+    for (let i = 0; i < sections.length; i++) {
+      const name = readString(
+        fileData,
+        shstrtab.sh_offset + sections[i].sh_name,
+      );
+      sections[i].name = name;
+
+      if (sections[i].sh_type === SHT_DYNAMIC) {
+        dynamicSection = sections[i];
+        console.log(".dynamic found at index", i);
+      } else if (name === ".dynstr") {
+        dynstrSection = sections[i];
+        console.log(".dynstr found at index", i);
+      }
+    }
+
+    const needed: string[] = [];
+
+    // 解析动态节区
+    if (dynamicSection && dynstrSection) {
+      const dynEntSize = is64Bit ? 16 : 8;
+      const numDynEntries = Math.floor(dynamicSection.sh_size / dynEntSize);
+
+      console.log(
+        `Parsing ${numDynEntries} dynamic entries from offset ${
+          dynamicSection.sh_offset
+        }`,
+      );
+
+      for (let i = 0; i < numDynEntries; i++) {
+        const dynOffset = dynamicSection.sh_offset + i * dynEntSize;
+
+        let d_tag: number, d_val: number;
+
+        if (is64Bit) {
+          d_tag = readNumber(fileData, dynOffset, 8, isLittleEndian);
+          d_val = readNumber(fileData, dynOffset + 8, 8, isLittleEndian);
+        } else {
+          d_tag = readNumber(fileData, dynOffset, 4, isLittleEndian);
+          d_val = readNumber(fileData, dynOffset + 4, 4, isLittleEndian);
+        }
+
+        // DT_NULL 表示动态节区结束
+        if (d_tag === DT_NULL) {
+          break;
+        }
+
+        // DT_NEEDED 表示需要的库
+        if (d_tag === DT_NEEDED) {
+          // d_val 是字符串在 .dynstr 中的偏移
+          const libName = readString(fileData, dynstrSection.sh_offset + d_val);
+          if (libName) {
+            needed.push(libName);
+          }
+        }
+      }
+
+      console.log(`Found ${needed.length} DT_NEEDED libraries:`, needed);
+    }
+
+    return { needed };
+  } catch (error) {
+    console.error("Failed to parse ELF dynamic section:", error);
+    return { needed: [] };
+  }
 }
 
 /**
