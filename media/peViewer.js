@@ -396,7 +396,7 @@
     // 检查是否为 ELF 文件
     if (parsedData.fileType === "ELF") {
       // ELF 文件特殊处理
-      if (itemId === "pe_header") {
+      if (itemId === "elf_header") {
         showELFOverview(
           parsedData,
           peDetails,
@@ -407,7 +407,7 @@
         return;
       }
 
-      if (itemId === "sections") {
+      if (itemId === "elf_sections") {
         showELFSections(
           parsedData,
           peDetails,
@@ -419,7 +419,7 @@
         return;
       }
 
-      if (itemId === "exports") {
+      if (itemId === "elf_exports") {
         showELFExports(
           parsedData,
           peDetails,
@@ -432,7 +432,7 @@
         return;
       }
 
-      if (itemId === "imports") {
+      if (itemId === "elf_imports") {
         showELFImportsOverview(
           parsedData,
           peDetails,
@@ -444,7 +444,7 @@
         return;
       }
 
-      if (itemId.startsWith("imports.")) {
+      if (itemId.startsWith("elf_imports.")) {
         const parts = itemId.split(".");
         if (parts.length === 2) {
           const libIndex = parseInt(parts[1]);
@@ -465,6 +465,23 @@
             );
             return;
           }
+        }
+      }
+
+      // 处理单个节区
+      if (itemId.startsWith("elf_section_")) {
+        const sectionIndex = parseInt(itemId.replace("elf_section_", ""));
+        if (!isNaN(sectionIndex)) {
+          showELFSection(
+            sectionIndex,
+            parsedData,
+            peDetails,
+            detailsTitle,
+            createTable,
+            hideSearchBox,
+            showEmptyMessage,
+          );
+          return;
         }
       }
 
