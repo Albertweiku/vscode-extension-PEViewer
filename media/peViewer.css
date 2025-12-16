@@ -234,17 +234,17 @@ body {
 /* 序号列宽度 - 通常是第一列 */
 .pe-details-table tr th:first-child,
 .pe-details-table tr td:first-child {
-  width: 80px ;
-  max-width: 80px ;
-  min-width: 60px ;
+  width: 80px;
+  max-width: 80px;
+  min-width: 60px;
 }
 
 /* 地址列宽度 */
 .pe-details-table tr th:nth-child(2),
 .pe-details-table tr td:nth-child(2) {
-  width: 120px ;
-  max-width: 120px ;
-  min-width: 100px ;
+  width: 120px;
+  max-width: 120px;
+  min-width: 100px;
 }
 
 .pe-details-table td {

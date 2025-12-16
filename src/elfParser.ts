@@ -130,16 +130,40 @@ export async function parseELF(fileData: Buffer): Promise<ExtendedELFData> {
     if (extendedData.exports.functions.length === 0) {
       console.log("No exports found, trying enhanced direct parsing...");
       try {
-        const directSymbols = parseELFSymbolsDirect(fileData);
-        if (directSymbols.length > 0) {
-          extendedData.exports.functions = directSymbols.map((s) => ({
+        const directResult = parseELFSymbolsDirect(fileData);
+        if (directResult.length > 0) {
+          // 分离导出和导入符号
+          const exportSymbols = directResult.filter((s) => s.shndx !== 0);
+          const importSymbols = directResult.filter((s) => s.shndx === 0);
+
+          // 填充导出符号
+          extendedData.exports.functions = exportSymbols.map((s) => ({
             name: s.name,
             address: s.address,
             size: s.size,
             type: s.type,
             binding: s.binding,
           }));
-          console.log("Direct parsing found exports:", directSymbols.length);
+
+          // 填充动态符号（包含导入和导出）
+          if (!extendedData.dynamicSymbols) {
+            extendedData.dynamicSymbols = [];
+          }
+          extendedData.dynamicSymbols = directResult.map((s) => ({
+            name: s.name,
+            value: s.address,
+            size: s.size,
+            type: s.type,
+            binding: s.binding,
+            shndx: s.shndx,
+            version: undefined,
+          }));
+
+          console.log("Direct parsing found exports:", exportSymbols.length);
+          console.log("Direct parsing found imports:", importSymbols.length);
+
+          // 重新解析导入（现在有了 dynamicSymbols）
+          extendedData.imports = parseELFImports(extendedData);
         }
       } catch (err) {
         console.log("Direct parsing failed:", err);
@@ -174,23 +198,30 @@ export async function parseELF(fileData: Buffer): Promise<ExtendedELFData> {
 function parseELFImports(elfData: ExtendedELFData): ELFImportLibrary[] {
   const imports: ELFImportLibrary[] = [];
   const libraryMap = new Map<string, ELFImportFunction[]>();
+  const neededLibs: string[] = [];
 
-  // 从动态符号表中提取导入的符号
+  // 首先从dynamic节区中提取需要的库名
+  if (elfData.dynamic && elfData.dynamic.length > 0) {
+    for (const entry of elfData.dynamic) {
+      if (entry.tag === "DT_NEEDED" || entry.d_tag === 1) {
+        const libName = entry.val || entry.d_val;
+        if (libName && typeof libName === "string") {
+          neededLibs.push(libName);
+          libraryMap.set(libName, []);
+        }
+      }
+    }
+  }
+
+  console.log("Found DT_NEEDED libraries:", neededLibs);
+
+  // 收集所有未定义的符号（导入符号）
+  const undefinedSymbols: ELFImportFunction[] = [];
   if (elfData.dynamicSymbols && elfData.dynamicSymbols.length > 0) {
     for (const symbol of elfData.dynamicSymbols) {
       // UND (undefined) 类型的符号表示导入
       if (symbol.shndx === 0 && symbol.name && symbol.name !== "") {
-        // 尝试从版本信息中获取库名
-        let libName = "UNKNOWN";
-        if (symbol.version) {
-          libName = symbol.version;
-        }
-
-        if (!libraryMap.has(libName)) {
-          libraryMap.set(libName, []);
-        }
-
-        libraryMap.get(libName)!.push({
+        undefinedSymbols.push({
           name: symbol.name,
           version: symbol.version,
         });
@@ -198,17 +229,53 @@ function parseELFImports(elfData: ExtendedELFData): ELFImportLibrary[] {
     }
   }
 
-  // 从dynamic节区中提取需要的库
-  if (elfData.dynamic && elfData.dynamic.length > 0) {
-    const neededLibs = elfData.dynamic
-      .filter((entry: any) => entry.tag === "DT_NEEDED" || entry.d_tag === 1)
-      .map((entry: any) => entry.val || entry.d_val);
+  console.log("Found undefined symbols:", undefinedSymbols.length);
 
-    for (const lib of neededLibs) {
-      if (!libraryMap.has(lib)) {
-        libraryMap.set(lib, []);
+  // 如果有库列表和未定义符号，将符号分配到库
+  if (neededLibs.length > 0 && undefinedSymbols.length > 0) {
+    // 如果只有一个库，所有符号都分配给它
+    if (neededLibs.length === 1) {
+      libraryMap.set(neededLibs[0], undefinedSymbols);
+    } else {
+      // 多个库的情况：尝试通过版本信息匹配，否则放到第一个库或创建"未分类"组
+      const versionedSymbols = new Map<string, ELFImportFunction[]>();
+      const unversionedSymbols: ELFImportFunction[] = [];
+
+      for (const symbol of undefinedSymbols) {
+        if (symbol.version) {
+          // 尝试在库列表中找到匹配的库
+          const matchingLib = neededLibs.find(
+            (lib) =>
+              lib.includes(symbol.version!) || symbol.version!.includes(lib),
+          );
+          if (matchingLib) {
+            if (!versionedSymbols.has(matchingLib)) {
+              versionedSymbols.set(matchingLib, []);
+            }
+            versionedSymbols.get(matchingLib)!.push(symbol);
+            continue;
+          }
+        }
+        unversionedSymbols.push(symbol);
+      }
+
+      // 分配有版本信息的符号
+      for (const [lib, symbols] of versionedSymbols) {
+        if (libraryMap.has(lib)) {
+          libraryMap.get(lib)!.push(...symbols);
+        }
+      }
+
+      // 将未分类的符号平均分配或放到一个通用组
+      if (unversionedSymbols.length > 0) {
+        // 创建一个"导入符号"通用组
+        const generalLibName = "Imported Symbols";
+        libraryMap.set(generalLibName, unversionedSymbols);
       }
     }
+  } else if (undefinedSymbols.length > 0) {
+    // 没有库信息，但有未定义符号，创建通用组
+    libraryMap.set("Imported Symbols", undefinedSymbols);
   }
 
   // 转换为数组格式
@@ -219,6 +286,7 @@ function parseELFImports(elfData: ExtendedELFData): ELFImportLibrary[] {
     });
   }
 
+  console.log("Parsed imports:", imports.length, "libraries");
   return imports;
 }
 

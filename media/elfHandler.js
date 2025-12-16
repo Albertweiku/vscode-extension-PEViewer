@@ -91,37 +91,47 @@ function buildELFTree(parsedData, selectItem) {
     '[data-item="imports"]',
   )?.parentElement;
 
-  if (importsList && parsedData.elfData && parsedData.elfData.imports) {
+  console.log("ELF imports data:", parsedData.elfData?.imports);
+  console.log("importsList element:", importsList);
+  console.log("importsGroup element:", importsGroup);
+
+  if (importsList && parsedData.elfData) {
     importsList.innerHTML = "";
-    let totalFunctions = 0;
 
-    parsedData.elfData.imports.forEach((lib, index) => {
-      const funcCount = lib.functions ? lib.functions.length : 0;
-      totalFunctions += funcCount;
+    // 检查是否有导入数据
+    if (parsedData.elfData.imports && parsedData.elfData.imports.length > 0) {
+      let totalFunctions = 0;
 
-      const li = document.createElement("li");
-      const a = document.createElement("a");
-      a.href = "#";
-      a.className = "pe-tree-item";
-      a.setAttribute("data-item", `imports.${index}`);
-      a.innerHTML = `${lib.name} <span class="pe-tree-count">(${funcCount})</span>`;
-      a.addEventListener("click", (e) => {
-        e.preventDefault();
-        selectItem(`imports.${index}`);
+      parsedData.elfData.imports.forEach((lib, index) => {
+        const funcCount = lib.functions ? lib.functions.length : 0;
+        totalFunctions += funcCount;
+
+        const div = document.createElement("div");
+        div.className = "pe-tree-item pe-tree-leaf";
+        div.setAttribute("data-item", `imports.${index}`);
+        div.innerHTML = `📚 ${lib.name} <span class="pe-tree-count">(${funcCount})</span>`;
+        div.addEventListener("click", (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          selectItem(`imports.${index}`);
+        });
+        importsList.appendChild(div);
       });
-      li.appendChild(a);
-      importsList.appendChild(li);
-    });
 
-    if (importCount) {
-      importCount.textContent = `(${totalFunctions})`;
-    }
+      if (importCount) {
+        importCount.textContent = `(${totalFunctions})`;
+      }
 
-    // 显示导入函数组
-    if (importsGroup) {
-      if (parsedData.elfData.imports.length > 0) {
+      // 显示导入函数组
+      if (importsGroup) {
         importsGroup.style.display = "";
-      } else {
+      }
+    } else {
+      // 没有导入数据，隐藏导入组
+      if (importCount) {
+        importCount.textContent = "(0)";
+      }
+      if (importsGroup) {
         importsGroup.style.display = "none";
       }
     }

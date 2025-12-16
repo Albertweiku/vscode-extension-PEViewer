@@ -46,6 +46,7 @@ export interface ParsedSymbol {
   size: number;
   type: string;
   binding: string;
+  shndx: number; // 节区索引，0 表示 UND (导入符号)
 }
 
 /**
@@ -165,13 +166,18 @@ export function parseELFSymbolsDirect(fileData: Buffer): ParsedSymbol[] {
         is64Bit,
         isLittleEndian,
       );
+      // 保留所有非 LOCAL 符号（包括导入和导出）
       allSymbols.push(...symbols.filter((s) => s.binding !== "STB_LOCAL"));
+      const exported = allSymbols.filter((s) => s.shndx !== 0).length;
+      const imported = allSymbols.filter((s) => s.shndx === 0).length;
       console.log(
         "Found",
         symbols.length,
         "dynamic symbols,",
-        allSymbols.length,
-        "exported",
+        exported,
+        "exported,",
+        imported,
+        "imported",
       );
     }
 
@@ -185,17 +191,22 @@ export function parseELFSymbolsDirect(fileData: Buffer): ParsedSymbol[] {
         is64Bit,
         isLittleEndian,
       );
+      // 保留所有 GLOBAL 和 WEAK 符号（包括导入和导出）
       allSymbols.push(
         ...symbols.filter(
           (s) => s.binding === "STB_GLOBAL" || s.binding === "STB_WEAK",
         ),
       );
+      const exported = allSymbols.filter((s) => s.shndx !== 0).length;
+      const imported = allSymbols.filter((s) => s.shndx === 0).length;
       console.log(
         "Found",
         symbols.length,
         "static symbols,",
-        allSymbols.length,
-        "exported",
+        exported,
+        "exported,",
+        imported,
+        "imported",
       );
     }
 
@@ -291,15 +302,15 @@ function parseSymbolTable(
     if (st_name !== 0) {
       const name = readString(buffer, strSection.sh_offset + st_name);
 
-      // 只保留有效的符号
-      if (name && st_shndx !== 0) {
-        // 非 UND
+      // 保留所有有名称的符号（包括导入和导出）
+      if (name) {
         symbols.push({
           name: name,
           address: st_value,
           size: st_size,
           type: getSymbolType(type),
           binding: getSymbolBinding(bind),
+          shndx: st_shndx, // 保存节区索引
         });
       }
     }
