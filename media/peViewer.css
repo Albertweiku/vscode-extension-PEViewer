@@ -1,230 +1,429 @@
 body {
-	font-family: var(--vscode-font-family);
-	font-size: var(--vscode-font-size);
-	background-color: var(--vscode-editor-background);
-	color: var(--vscode-editor-foreground);
-	margin: 0;
-	padding: 0;
-	height: 100vh;
-	overflow: hidden;
+  font-family: var(--vscode-font-family);
+  font-size: var(--vscode-font-size);
+  background-color: var(--vscode-editor-background);
+  color: var(--vscode-editor-foreground);
+  margin: 0;
+  padding: 0;
+  height: 100vh;
+  overflow: hidden;
 }
 
 .pe-editor-container {
-	display: flex;
-	height: 100vh;
+  display: flex;
+  height: 100vh;
 }
 
 .pe-sidebar {
-	width: 300px;
-	min-width: 200px;
-	max-width: 500px;
-	background-color: var(--vscode-sideBar-background);
-	border-right: 1px solid var(--vscode-panel-border);
-	display: flex;
-	flex-direction: column;
-	resize: horizontal;
-	overflow: auto;
+  width: 300px;
+  min-width: 200px;
+  max-width: 500px;
+  background-color: var(--vscode-sideBar-background);
+  border-right: 1px solid var(--vscode-panel-border);
+  display: flex;
+  flex-direction: column;
+  resize: horizontal;
+  overflow: auto;
 }
 
 .pe-tree-header {
-	padding: 10px 15px;
-	font-weight: bold;
-	font-size: 14px;
-	border-bottom: 1px solid var(--vscode-panel-border);
-	background-color: var(--vscode-titleBar-activeBackground);
-	color: var(--vscode-titleBar-activeForeground);
+  padding: 10px 15px;
+  font-weight: bold;
+  font-size: 14px;
+  border-bottom: 1px solid var(--vscode-panel-border);
+  background-color: var(--vscode-titleBar-activeBackground);
+  color: var(--vscode-titleBar-activeForeground);
 }
 
 .pe-tree {
-	flex: 1;
-	overflow-y: auto;
-	padding: 5px 0;
+  flex: 1;
+  overflow-y: auto;
+  padding: 5px 0;
 }
 
 .pe-tree-group {
-	margin: 0;
-	padding: 0;
+  margin: 0;
+  padding: 0;
 }
 
 .pe-tree-group > summary {
-	list-style: none;
-	cursor: pointer;
-	position: relative;
+  list-style: none;
+  cursor: pointer;
+  position: relative;
 }
 
 .pe-tree-group > summary::-webkit-details-marker {
-	display: none;
+  display: none;
 }
 
 /* 添加展开/收起符号 */
 .pe-tree-group > summary::before {
-	content: '+';
-	display: inline-block;
-	width: 16px;
-	margin-right: 4px;
-	font-weight: bold;
-	color: var(--vscode-foreground);
-	text-align: center;
+  content: "+";
+  display: inline-block;
+  width: 16px;
+  margin-right: 4px;
+  font-weight: bold;
+  color: var(--vscode-foreground);
+  text-align: center;
 }
 
 .pe-tree-group[open] > summary::before {
-	content: '-';
+  content: "-";
 }
 
 /* 顶级项目（没有details包裹的）添加占位空间以对齐 */
 .pe-tree-item.pe-tree-top-level {
-	padding-left: calc(15px + 20px); /* 15px原始padding + 20px符号宽度 */
+  padding-left: calc(15px + 20px); /* 15px原始padding + 20px符号宽度 */
 }
 
 .pe-tree-children {
-	padding-left: 30px;
+  padding-left: 30px;
 }
 
 .pe-tree-item {
-	padding: 5px 15px;
-	cursor: pointer;
-	font-size: 13px;
-	position: relative;
-	user-select: none;
-	transition: background-color 0.1s ease;
-	display: block;
+  padding: 5px 15px;
+  cursor: pointer;
+  font-size: 13px;
+  position: relative;
+  user-select: none;
+  transition: background-color 0.1s ease;
+  display: block;
 }
 
 .pe-tree-item:hover {
-	background-color: var(--vscode-list-hoverBackground);
+  background-color: var(--vscode-list-hoverBackground);
 }
 
 .pe-tree-item.selected {
-	background-color: var(--vscode-list-activeSelectionBackground);
-	color: var(--vscode-list-activeSelectionForeground);
+  background-color: var(--vscode-list-activeSelectionBackground);
+  color: var(--vscode-list-activeSelectionForeground);
 }
 
 .pe-tree-leaf {
-	padding-left: 30px;
+  padding-left: 30px;
 }
 
 .pe-tree-count {
-	color: var(--vscode-descriptionForeground);
-	font-size: 11px;
-	margin-left: 5px;
+  color: var(--vscode-descriptionForeground);
+  font-size: 11px;
+  margin-left: 5px;
 }
 
 .pe-content {
-	flex: 1;
-	display: flex;
-	flex-direction: column;
-	background-color: var(--vscode-editor-background);
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--vscode-editor-background);
 }
 
 .pe-details-header {
-	padding: 10px 15px;
-	font-weight: bold;
-	font-size: 14px;
-	border-bottom: 1px solid var(--vscode-panel-border);
-	background-color: var(--vscode-titleBar-activeBackground);
-	color: var(--vscode-titleBar-activeForeground);
+  padding: 10px 15px;
+  font-weight: bold;
+  font-size: 14px;
+  border-bottom: 1px solid var(--vscode-panel-border);
+  background-color: var(--vscode-titleBar-activeBackground);
+  color: var(--vscode-titleBar-activeForeground);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 15px;
+  min-height: 40px;
+}
+
+.pe-details-header > span:first-child {
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: calc(100% - 270px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pe-search-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+  flex-shrink: 0;
+  min-width: 250px;
+}
+
+.pe-search-input {
+  padding: 4px 8px;
+  font-size: 12px;
+  background-color: var(--vscode-input-background);
+  color: var(--vscode-input-foreground);
+  border: 1px solid var(--vscode-input-border);
+  border-radius: 3px;
+  outline: none;
+  min-width: 200px;
+  transition: border-color 0.2s;
+}
+
+.pe-search-input:focus {
+  border-color: var(--vscode-focusBorder);
+}
+
+.pe-search-input::placeholder {
+  color: var(--vscode-input-placeholderForeground);
+}
+
+.pe-search-count {
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+  white-space: nowrap;
+}
+
+.pe-details-table tr.highlight {
+  background-color: var(--vscode-editor-findMatchHighlightBackground);
+}
+
+.pe-details-table tr.highlight-current {
+  background-color: var(--vscode-editor-findMatchBackground);
+  border: 1px solid var(--vscode-editor-findMatchBorder);
 }
 
 .pe-details {
-	flex: 1;
-	overflow-y: auto;
-	padding: 15px;
-	font-family: 'Courier New', monospace;
-	font-size: 12px;
-	line-height: 1.4;
+  flex: 1;
+  overflow-y: auto;
+  padding: 15px;
+  font-family: "Courier New", monospace;
+  font-size: 12px;
+  line-height: 1.4;
 }
 
 .pe-details-section {
-	margin-bottom: 20px;
+  margin-bottom: 20px;
 }
 
 .pe-details-section h4 {
-	margin: 0 0 10px 0;
-	color: var(--vscode-textLink-foreground);
-	font-size: 13px;
-	font-weight: bold;
-	border-bottom: 1px solid var(--vscode-panel-border);
-	padding-bottom: 5px;
+  margin: 0 0 10px 0;
+  color: var(--vscode-textLink-foreground);
+  font-size: 13px;
+  font-weight: bold;
+  border-bottom: 1px solid var(--vscode-panel-border);
+  padding-bottom: 5px;
 }
 
 .pe-details-section h5 {
-	margin: 15px 0 8px 0;
-	color: var(--vscode-textLink-foreground);
-	font-size: 12px;
-	font-weight: bold;
+  margin: 15px 0 8px 0;
+  color: var(--vscode-textLink-foreground);
+  font-size: 12px;
+  font-weight: bold;
 }
 
 .pe-details-table {
-	width: 100%;
-	border-collapse: collapse;
-	margin-bottom: 15px;
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 15px;
 }
 
 .pe-details-table th,
 .pe-details-table td {
-	padding: 4px 8px;
-	text-align: left;
-	border-bottom: 1px solid var(--vscode-panel-border);
+  padding: 4px 8px;
+  text-align: left;
+  border-bottom: 1px solid var(--vscode-panel-border);
 }
 
 .pe-details-table th {
-	background-color: var(--vscode-editorWidget-background);
-	font-weight: bold;
-	width: 150px;
+  background-color: var(--vscode-editorWidget-background);
+  font-weight: bold;
+  width: 150px;
 }
 
 /* 序号列宽度 - 通常是第一列 */
 .pe-details-table tr th:first-child,
 .pe-details-table tr td:first-child {
-	width: 80px !important;
-	max-width: 80px !important;
-	min-width: 60px !important;
+  width: 80px;
+  max-width: 80px;
+  min-width: 60px;
 }
 
 /* 地址列宽度 */
 .pe-details-table tr th:nth-child(2),
 .pe-details-table tr td:nth-child(2) {
-	width: 120px !important;
-	max-width: 120px !important;
-	min-width: 100px !important;
+  width: 120px;
+  max-width: 120px;
+  min-width: 100px;
 }
 
 .pe-details-table td {
-	font-family: 'Courier New', monospace;
-	font-size: 11px;
-	word-break: break-all;
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
+  font-family: "Courier New", monospace;
+  font-size: 11px;
+}
+
+/* 导出函数表格容器 */
+.export-table-container {
+  overflow-x: auto;
+  overflow-y: auto;
+  max-height: calc(100vh - 200px);
+  margin-bottom: 0;
+}
+
+.export-table-container .pe-details-table {
+  table-layout: fixed;
+  width: 100%;
+  min-width: 800px; /* 确保表格有最小宽度，防止列挤压 */
+}
+
+/* 导出函数表格列宽 */
+.export-table-container .pe-details-table tr th:nth-child(1),
+.export-table-container .pe-details-table tr td:nth-child(1) {
+  width: 12px !important;
+  min-width: 12px !important;
+  max-width: 12px !important;
+}
+
+.export-table-container .pe-details-table tr th:nth-child(2),
+.export-table-container .pe-details-table tr td:nth-child(2) {
+  width: 30px !important;
+  min-width: 30px !important;
+  max-width: 30px !important;
+}
+
+.export-table-container .pe-details-table tr th:nth-child(3),
+.export-table-container .pe-details-table tr td:nth-child(3) {
+  width: 45%;
+  min-width: 250px;
+}
+
+.export-table-container .pe-details-table tr th:nth-child(4),
+.export-table-container .pe-details-table tr td:nth-child(4) {
+  width: 45%;
+  min-width: 250px;
+}
+
+/* 函数名列样式 */
+.export-table-container .pe-details-table tr td:nth-child(3),
+.export-table-container .pe-details-table tr td:nth-child(4) {
+  word-break: break-all;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  overflow: hidden;
+  vertical-align: top;
+}
+
+/* 导入函数表格容器 */
+.import-table-container {
+  overflow-x: auto;
+  overflow-y: auto;
+  max-height: calc(100vh - 200px);
+  margin-bottom: 0;
+}
+
+.import-table-container .pe-details-table {
+  table-layout: fixed;
+  width: 100%;
+}
+
+/* 导入函数表格列宽 */
+.import-table-container .pe-details-table tr th:nth-child(1),
+.import-table-container .pe-details-table tr td:nth-child(1) {
+  width: 30%;
+  min-width: 150px;
+}
+
+.import-table-container .pe-details-table tr th:nth-child(2),
+.import-table-container .pe-details-table tr td:nth-child(2) {
+  width: 50%;
+  min-width: 200px;
+}
+
+.import-table-container .pe-details-table tr th:nth-child(3),
+.import-table-container .pe-details-table tr td:nth-child(3) {
+  width: 20%;
+  min-width: 100px;
+}
+
+/* 导入函数名列样式 */
+.import-table-container .pe-details-table tr td:nth-child(1),
+.import-table-container .pe-details-table tr td:nth-child(2) {
+  word-break: break-all;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+/* ELF 导出符号表格样式 */
+.pe-details-section .pe-details-table {
+  table-layout: fixed;
+  width: 100%;
+  min-width: 900px;
+}
+
+/* ELF 导出符号表格列宽（6列） */
+.pe-details-section .pe-details-table tr th:nth-child(1),
+.pe-details-section .pe-details-table tr td:nth-child(1) {
+  width: 60px;
+  min-width: 60px;
+  max-width: 60px;
+}
+
+.pe-details-section .pe-details-table tr th:nth-child(2),
+.pe-details-section .pe-details-table tr td:nth-child(2) {
+  width: 40%;
+  min-width: 200px;
+  word-break: break-all;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  overflow: hidden;
+  vertical-align: top;
+}
+
+.pe-details-section .pe-details-table tr th:nth-child(3),
+.pe-details-section .pe-details-table tr td:nth-child(3) {
+  width: 120px;
+  min-width: 120px;
+  max-width: 120px;
+}
+
+.pe-details-section .pe-details-table tr th:nth-child(4),
+.pe-details-section .pe-details-table tr td:nth-child(4) {
+  width: 80px;
+  min-width: 80px;
+  max-width: 80px;
+}
+
+.pe-details-section .pe-details-table tr th:nth-child(5),
+.pe-details-section .pe-details-table tr td:nth-child(5) {
+  width: 100px;
+  min-width: 100px;
+  max-width: 100px;
+}
+
+.pe-details-section .pe-details-table tr th:nth-child(6),
+.pe-details-section .pe-details-table tr td:nth-child(6) {
+  width: 100px;
+  min-width: 100px;
+  max-width: 100px;
 }
 
 .pe-details-value {
-	color: var(--vscode-textPreformat-foreground);
+  color: var(--vscode-textPreformat-foreground);
 }
 
 .pe-details-hex {
-	color: var(--vscode-textLink-foreground);
-	font-weight: bold;
+  color: var(--vscode-textLink-foreground);
+  font-weight: bold;
 }
 
 /* 滚动条样式 */
 .pe-tree::-webkit-scrollbar,
 .pe-details::-webkit-scrollbar {
-	width: 10px;
+  width: 10px;
 }
 
 .pe-tree::-webkit-scrollbar-track,
 .pe-details::-webkit-scrollbar-track {
-	background: var(--vscode-scrollbarSlider-background);
+  background: var(--vscode-scrollbarSlider-background);
 }
 
 .pe-tree::-webkit-scrollbar-thumb,
 .pe-details::-webkit-scrollbar-thumb {
-	background: var(--vscode-scrollbarSlider-hoverBackground);
-	border-radius: 5px;
+  background: var(--vscode-scrollbarSlider-hoverBackground);
+  border-radius: 5px;
 }
 
 .pe-tree::-webkit-scrollbar-thumb:hover,
 .pe-details::-webkit-scrollbar-thumb:hover {
-	background: var(--vscode-scrollbarSlider-activeBackground);
+  background: var(--vscode-scrollbarSlider-activeBackground);
 }

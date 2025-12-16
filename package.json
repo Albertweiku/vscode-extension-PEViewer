@@ -1,16 +1,48 @@
 {
-  "name": "peviewer",
-  "displayName": "PEViewer",
-  "description": "PE file structure viewer and analyzer",
-  "version": "0.0.251206",
+  "name": "pe-elf-viewer",
+  "displayName": "PE/ELF Viewer",
+  "description": "Professional PE (Windows executables) and ELF (Linux shared objects) file structure viewer and analyzer with symbol decoding support",
+  "version": "1.1.1",
+  "publisher": "Albertweiku",
+  "license": "MIT",
+  "icon": "media/icon.png",
   "repository": {
     "type": "git",
-    "url": "https://github.com/easyatm/vscode-extension-PEViewer"
+    "url": "https://github.com/Albertweiku/vscode-extension-PEViewer.git"
   },
+  "bugs": {
+    "url": "https://github.com/Albertweiku/vscode-extension-PEViewer.git/issues"
+  },
+  "homepage": "https://github.com/Albertweiku/vscode-extension-PEViewer/blob/main/README.zh-cn.md",
+  "keywords": [
+    "PE",
+    "ELF",
+    "exe",
+    "dll",
+    "so",
+    "binary",
+    "executable",
+    "analyzer",
+    "viewer",
+    "reverse engineering",
+    "symbols",
+    "imports",
+    "exports",
+    "sections",
+    "HarmonyOS",
+    "Linux",
+    "Windows"
+  ],
   "engines": {
-    "vscode": "^1.106.1"
+    "vscode": "^1.85.0"
+  },
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": true
+    }
   },
   "categories": [
+    "Programming Languages",
     "Other"
   ],
   "activationEvents": [],
@@ -31,6 +63,20 @@
           ".scr",
           ".drv",
           ".cpl"
+        ]
+      },
+      {
+        "id": "elf",
+        "aliases": [
+          "ELF",
+          "Executable and Linkable Format"
+        ],
+        "extensions": [
+          ".so",
+          ".o",
+          ".a",
+          ".ko",
+          ".elf"
         ]
       }
     ],
@@ -59,6 +105,36 @@
           },
           {
             "filenamePattern": "*.cpl"
+          },
+          {
+            "filenamePattern": "*.so"
+          },
+          {
+            "filenamePattern": "*.so.*"
+          },
+          {
+            "filenamePattern": "lib*.so"
+          },
+          {
+            "filenamePattern": "*.o"
+          },
+          {
+            "filenamePattern": "*.a"
+          },
+          {
+            "filenamePattern": "*.ko"
+          },
+          {
+            "filenamePattern": "*.elf"
+          },
+          {
+            "filenamePattern": "*.axf"
+          },
+          {
+            "filenamePattern": "*.bin"
+          },
+          {
+            "filenamePattern": "*.out"
           }
         ]
       }
@@ -80,16 +156,19 @@
     "watch-tests": "tsc -p . -w --outDir out",
     "pretest": "npm run compile-tests && npm run compile && npm run lint",
     "lint": "eslint src",
-    "test": "vscode-test"
+    "test": "vscode-test",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
   },
   "devDependencies": {
     "@types/mocha": "^10.0.10",
-    "@types/node": "22.x",
-    "@types/vscode": "^1.106.1",
+    "@types/node": "^22.19.3",
+    "@types/vscode": "^1.85.0",
     "@vscode/test-cli": "^0.0.12",
     "@vscode/test-electron": "^2.5.2",
     "@vscode/vsce": "^3.7.1",
     "eslint": "^9.39.1",
+    "prettier": "^3.7.4",
     "ts-loader": "^9.5.4",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.46.3",
@@ -97,6 +176,8 @@
     "webpack-cli": "^6.0.1"
   },
   "dependencies": {
+    "elf-tools": "^1.1.2",
+    "elfy": "^1.0.0",
     "pe-parser": "^1.0.11"
   }
 }
