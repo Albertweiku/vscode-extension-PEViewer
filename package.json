@@ -1,14 +1,38 @@
 {
-  "name": "peviewer",
-  "displayName": "PEViewer",
-  "description": "PE file structure viewer and analyzer",
-  "version": "1.0.251206",
+  "name": "pe-elf-viewer",
+  "displayName": "PE/ELF Viewer",
+  "description": "Professional PE (Windows executables) and ELF (Linux shared objects) file structure viewer and analyzer with symbol decoding support",
+  "version": "1.1.0",
   "publisher": "Albertweiku",
   "license": "MIT",
+  "icon": "media/icon.png",
   "repository": {
     "type": "git",
-    "url": "https://github.com/easyatm/vscode-extension-PEViewer"
+    "url": "https://github.com/Albertweiku/vscode-extension-PEViewer.git"
   },
+  "bugs": {
+    "url": "https://github.com/Albertweiku/vscode-extension-PEViewer.git/issues"
+  },
+  "homepage": "https://github.com/Albertweiku/vscode-extension-PEViewer.git#readme",
+  "keywords": [
+    "PE",
+    "ELF",
+    "exe",
+    "dll",
+    "so",
+    "binary",
+    "executable",
+    "analyzer",
+    "viewer",
+    "reverse engineering",
+    "symbols",
+    "imports",
+    "exports",
+    "sections",
+    "HarmonyOS",
+    "Linux",
+    "Windows"
+  ],
   "engines": {
     "vscode": "^1.85.0"
   },
@@ -18,6 +42,7 @@
     }
   },
   "categories": [
+    "Programming Languages",
     "Other"
   ],
   "activationEvents": [],
