@@ -1,0 +1,292 @@
+﻿/**
+ * 通用样式 - 适用于所有文件格式查看器
+ */
+
+/* 基础布局 */
+body {
+  font-family: var(--vscode-font-family);
+  font-size: var(--vscode-font-size);
+  background-color: var(--vscode-editor-background);
+  color: var(--vscode-editor-foreground);
+  margin: 0;
+  padding: 0;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.pe-editor-container {
+  display: flex;
+  height: 100vh;
+}
+
+/* 侧边栏 */
+.pe-sidebar {
+  width: 300px;
+  min-width: 200px;
+  max-width: 500px;
+  background-color: var(--vscode-sideBar-background);
+  border-right: 1px solid var(--vscode-panel-border);
+  display: flex;
+  flex-direction: column;
+  resize: horizontal;
+  overflow: auto;
+}
+
+.pe-tree-header {
+  padding: 10px 15px;
+  font-weight: bold;
+  font-size: 14px;
+  border-bottom: 1px solid var(--vscode-panel-border);
+  background-color: var(--vscode-titleBar-activeBackground);
+  color: var(--vscode-titleBar-activeForeground);
+}
+
+.pe-tree {
+  flex: 1;
+  overflow-y: auto;
+  padding: 5px 0;
+}
+
+/* 树形结构 */
+.pe-tree-group {
+  margin: 0;
+  padding: 0;
+}
+
+.pe-tree-group > summary {
+  list-style: none;
+  cursor: pointer;
+  user-select: none;
+  outline: none;
+}
+
+.pe-tree-group > summary::-webkit-details-marker {
+  display: none;
+}
+
+.pe-tree-item {
+  padding: 5px 10px;
+  cursor: pointer;
+  user-select: none;
+  transition: background-color 0.1s;
+}
+
+.pe-tree-item:hover {
+  background-color: var(--vscode-list-hoverBackground);
+}
+
+.pe-tree-item.selected {
+  background-color: var(--vscode-list-activeSelectionBackground);
+  color: var(--vscode-list-activeSelectionForeground);
+}
+
+.pe-tree-top-level {
+  font-weight: bold;
+  margin-top: 5px;
+}
+
+.pe-tree-leaf {
+  padding-left: 30px;
+}
+
+.pe-tree-children {
+  padding-left: 0;
+}
+
+.pe-tree-count {
+  color: var(--vscode-descriptionForeground);
+  font-size: 11px;
+  font-weight: normal;
+}
+
+/* 内容区域 */
+.pe-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--vscode-editor-background);
+  overflow: hidden;
+}
+
+/* 详情面板 */
+.pe-details {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+  background-color: var(--vscode-editor-background);
+}
+
+.pe-details-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+  padding: 10px 15px;
+  border-bottom: 1px solid var(--vscode-panel-border);
+  gap: 15px;
+  min-height: 40px;
+}
+
+.pe-details-header > span:first-child {
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: calc(100% - 270px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pe-details-title {
+  font-size: 18px;
+  font-weight: bold;
+  color: var(--vscode-editor-foreground);
+  margin: 0;
+}
+
+/* 搜索容器布局 */
+.pe-search-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+  flex-shrink: 0;
+  min-width: 250px;
+}
+
+.pe-search-count {
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+  white-space: nowrap;
+}
+
+/* 表格样式 */
+.pe-details-section table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 20px;
+}
+
+.pe-details-section table th,
+.pe-details-section table td {
+  padding: 8px 12px;
+  text-align: left;
+  border: 1px solid var(--vscode-panel-border);
+}
+
+.pe-details-section table th {
+  background-color: var(--vscode-editor-lineHighlightBackground);
+  font-weight: bold;
+  width: 30%;
+}
+
+.pe-details-section table td {
+  background-color: var(--vscode-editor-background);
+  word-break: break-word;
+}
+
+/* 表格高亮样式 */
+.pe-details-table tbody tr.highlight,
+table.pe-details-table tbody tr.highlight {
+  background-color: var(
+    --vscode-editor-findMatchHighlightBackground,
+    rgba(234, 92, 0, 0.33)
+  ) !important;
+}
+
+.pe-details-table tbody tr.highlight td,
+table.pe-details-table tbody tr.highlight td {
+  background-color: var(
+    --vscode-editor-findMatchHighlightBackground,
+    rgba(234, 92, 0, 0.33)
+  ) !important;
+}
+
+.pe-details-table tbody tr.highlight-current,
+table.pe-details-table tbody tr.highlight-current {
+  background-color: var(
+    --vscode-editor-findMatchBackground,
+    rgba(234, 92, 0, 0.66)
+  ) !important;
+  border: 1px solid var(--vscode-editor-findMatchBorder, rgba(234, 92, 0, 1)) !important;
+}
+
+.pe-details-table tbody tr.highlight-current td,
+table.pe-details-table tbody tr.highlight-current td {
+  background-color: var(
+    --vscode-editor-findMatchBackground,
+    rgba(234, 92, 0, 0.66)
+  ) !important;
+}
+
+.pe-details-section h3 {
+  margin-top: 20px;
+  margin-bottom: 10px;
+  color: var(--vscode-editor-foreground);
+  font-size: 16px;
+  border-bottom: 1px solid var(--vscode-panel-border);
+  padding-bottom: 5px;
+}
+
+.pe-details-section h4 {
+  margin-top: 15px;
+  margin-bottom: 8px;
+  color: var(--vscode-editor-foreground);
+  font-size: 14px;
+}
+
+/* 滚动条样式 */
+.pe-tree::-webkit-scrollbar,
+.pe-details::-webkit-scrollbar {
+  width: 10px;
+}
+
+.pe-tree::-webkit-scrollbar-track,
+.pe-details::-webkit-scrollbar-track {
+  background: var(--vscode-scrollbarSlider-background);
+}
+
+.pe-tree::-webkit-scrollbar-thumb,
+.pe-details::-webkit-scrollbar-thumb {
+  background: var(--vscode-scrollbarSlider-hoverBackground);
+  border-radius: 5px;
+}
+
+.pe-tree::-webkit-scrollbar-thumb:hover,
+.pe-details::-webkit-scrollbar-thumb:hover {
+  background: var(--vscode-scrollbarSlider-activeBackground);
+}
+
+/* 十六进制预览 */
+.hex-preview {
+  font-family: "Courier New", Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  background-color: var(--vscode-textCodeBlock-background);
+  padding: 10px;
+  border-radius: 3px;
+  overflow-x: auto;
+}
+
+.hex-line {
+  white-space: nowrap;
+}
+
+.hex-offset {
+  color: var(--vscode-debugTokenExpression-number);
+  margin-right: 10px;
+}
+
+.hex-bytes {
+  color: var(--vscode-editor-foreground);
+  margin-right: 20px;
+}
+
+.hex-ascii {
+  color: var(--vscode-descriptionForeground);
+}
+
+.hex-more {
+  color: var(--vscode-descriptionForeground);
+  font-style: italic;
+  margin-top: 5px;
+}

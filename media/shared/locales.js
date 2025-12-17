@@ -346,6 +346,48 @@ const locales = {
     clickToSaveIcon: "点击保存图标",
     bitSuffix: " bit",
     versionInfoFields: "版本信息字段",
+    emptyString: "(空字符串)",
+
+    // LIB 文件相关
+    libViewerTitle: "LIB Viewer - COFF Archive 文件结构",
+    libOverview: "LIB 文件总览",
+    libBasicInfo: "基本信息",
+    libTopMembers: "主要成员文件",
+    libExportStats: "导出符号统计",
+    libClickExportsForDetails: '点击左侧树中的"导出符号"查看详情',
+    libExportsDescription:
+      "这些是此静态库中导出的所有符号，可供其他程序链接使用。",
+    andMoreMembers: "还有 {count} 个成员",
+    libHeader: "LIB 文件头",
+    libMembers: "成员文件",
+    libSymbols: "符号索引",
+    libExports: "导出符号",
+    libMemberCount: "成员总数",
+    libNormalMemberCount: "普通成员数",
+    libSymbolCount: "符号总数",
+    libExportCount: "导出符号数",
+    libTotalSize: "总大小",
+    bytes: "字节",
+    libMemberDetails: "成员详情",
+    libMemberName: "成员名称",
+    libMemberIndex: "成员索引",
+    libMemberSize: "成员大小",
+    libMemberOffset: "文件偏移",
+    libMemberTimestamp: "时间戳",
+    libMemberUID: "UID",
+    libMemberGID: "GID",
+    libMemberMode: "权限模式",
+    libMemberDataPreview: "数据预览（十六进制）",
+    libMoreBytes: "... 还有 {count} 字节",
+    libSymbolName: "符号名",
+    libSymbolMember: "所属成员",
+    libMoreSymbols: "... 还有 {count} 个符号",
+    libExportName: "导出符号名",
+    libExportMember: "所属成员",
+    libSearchPlaceholder: "搜索符号名称...",
+    libSearchResults: "显示 {filtered} / {total} 个符号",
+    libMoreExports: "... 还有 {count} 个导出符号",
+    andMoreItems: "还有 {count} 项",
 
     // ELF 文件相关
     elfViewerTitle: "ELF Viewer - ELF文件结构",
@@ -774,6 +816,49 @@ const locales = {
     clickToSaveIcon: "Click to save icon",
     bitSuffix: " bit",
     versionInfoFields: "Version Information Fields",
+    emptyString: "(Empty String)",
+
+    // LIB File Related
+    libViewerTitle: "LIB Viewer - COFF Archive File Structure",
+    libOverview: "LIB File Overview",
+    libBasicInfo: "Basic Information",
+    libTopMembers: "Top Member Files",
+    libExportStats: "Export Statistics",
+    libClickExportsForDetails:
+      'Click "Exported Symbols" in the left tree for details',
+    libExportsDescription:
+      "These are all symbols exported by this static library, available for linking by other programs.",
+    andMoreMembers: "and {count} more members",
+    libHeader: "LIB File Header",
+    libMembers: "Member Files",
+    libSymbols: "Symbol Index",
+    libExports: "Exported Symbols",
+    libMemberCount: "Total Members",
+    libNormalMemberCount: "Normal Members",
+    libSymbolCount: "Total Symbols",
+    libExportCount: "Exported Symbols",
+    libTotalSize: "Total Size",
+    bytes: "bytes",
+    libMemberDetails: "Member Details",
+    libMemberName: "Member Name",
+    libMemberIndex: "Member Index",
+    libMemberSize: "Member Size",
+    libMemberOffset: "File Offset",
+    libMemberTimestamp: "Timestamp",
+    libMemberUID: "UID",
+    libMemberGID: "GID",
+    libMemberMode: "Permission Mode",
+    libMemberDataPreview: "Data Preview (Hexadecimal)",
+    libMoreBytes: "... {count} more bytes",
+    libSymbolName: "Symbol Name",
+    libSymbolMember: "Member",
+    libMoreSymbols: "... {count} more symbols",
+    libExportName: "Export Name",
+    libExportMember: "Member",
+    libSearchPlaceholder: "Search symbol name...",
+    libSearchResults: "Showing {filtered} / {total} symbols",
+    libMoreExports: "... {count} more exports",
+    andMoreItems: "{count} more items",
 
     // ELF File Related
     elfViewerTitle: "ELF Viewer - ELF File Structure",
@@ -864,12 +949,24 @@ const locales = {
 let currentLanguage = "en";
 
 // 获取本地化字符串
-function t(key) {
+function t(key, params) {
   const langData = locales[currentLanguage];
+  let text = key;
   if (langData && langData[key]) {
-    return langData[key];
+    text = langData[key];
   }
-  return key;
+
+  // 参数替换
+  if (params) {
+    Object.keys(params).forEach((paramKey) => {
+      text = text.replace(
+        new RegExp(`\\{${paramKey}\\}`, "g"),
+        params[paramKey],
+      );
+    });
+  }
+
+  return text;
 }
 
 // 更新UI语言

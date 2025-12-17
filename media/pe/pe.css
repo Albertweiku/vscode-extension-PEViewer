@@ -1,0 +1,120 @@
+﻿/**
+ * PE 文件格式专用样式
+ */
+
+/* PE 详情表格 */
+.pe-details-section h3 {
+  margin: 0 0 10px 0;
+  color: var(--vscode-textLink-foreground);
+  font-size: 13px;
+  font-weight: bold;
+  border-bottom: 1px solid var(--vscode-panel-border);
+  padding-bottom: 5px;
+}
+
+.pe-details-section h5 {
+  margin: 15px 0 8px 0;
+  color: var(--vscode-textLink-foreground);
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.pe-details-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 15px;
+}
+
+.pe-details-table th,
+.pe-details-table td {
+  padding: 4px 8px;
+  text-align: left;
+  border-bottom: 1px solid var(--vscode-panel-border);
+}
+
+.pe-details-table th {
+  background-color: var(--vscode-editorWidget-background);
+  font-weight: bold;
+  width: 150px;
+}
+
+/* 序号列宽度 */
+.pe-details-table tr th:first-child,
+.pe-details-table tr td:first-child {
+  width: 80px;
+  max-width: 80px;
+  min-width: 60px;
+}
+
+/* 地址列宽度 */
+.pe-details-table tr th:nth-child(2),
+.pe-details-table tr td:nth-child(2) {
+  width: 120px;
+  max-width: 120px;
+  min-width: 100px;
+}
+
+.pe-details-table td {
+  background-color: transparent;
+}
+
+/* 函数名列样式 */
+.pe-details-section .pe-details-table tr th:nth-child(3),
+.pe-details-section .pe-details-table tr td:nth-child(3) {
+  width: 250px;
+  min-width: 150px;
+  max-width: 400px;
+  word-break: break-all;
+}
+
+.pe-details-section .pe-details-table tr th:nth-child(4),
+.pe-details-section .pe-details-table tr td:nth-child(4) {
+  width: 80px;
+  min-width: 80px;
+  max-width: 80px;
+}
+
+.pe-details-section .pe-details-table tr th:nth-child(5),
+.pe-details-section .pe-details-table tr td:nth-child(5) {
+  width: 100px;
+  min-width: 100px;
+  max-width: 100px;
+}
+
+.pe-details-section .pe-details-table tr th:nth-child(6),
+.pe-details-section .pe-details-table tr td:nth-child(6) {
+  width: 100px;
+  min-width: 100px;
+  max-width: 100px;
+}
+
+.pe-details-value {
+  color: var(--vscode-textPreformat-foreground);
+}
+
+.pe-details-hex {
+  color: var(--vscode-textLink-foreground);
+  font-weight: bold;
+}
+
+/* PE 搜索功能 */
+.pe-search-input {
+  padding: 4px 8px;
+  font-size: 12px;
+  min-width: 200px;
+  background: var(--vscode-input-background);
+  color: var(--vscode-input-foreground);
+  border: 1px solid var(--vscode-input-border);
+  border-radius: 3px;
+  font-family: var(--vscode-font-family);
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.pe-search-input:focus {
+  border-color: var(--vscode-focusBorder);
+}
+
+.pe-search-input::placeholder {
+  color: var(--vscode-input-placeholderForeground);
+}

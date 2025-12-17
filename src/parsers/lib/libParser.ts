@@ -1,0 +1,323 @@
+﻿/**
+ * COFF Archive (.lib) 文件解析器
+ */
+
+export interface LibArchiveMember {
+  name: string;
+  timestamp: number;
+  size: number;
+  offset: number;
+  data?: number[]; // 改为数组以便JSON序列化
+  uid?: number;
+  gid?: number;
+  mode?: number;
+}
+
+export interface LibArchiveData {
+  members: LibArchiveMember[];
+  symbols?: Record<string, string>; // 符号名 -> 成员名（改为普通对象以便JSON序列化）
+}
+
+const ARCHIVE_MAGIC = "!<arch>\n";
+const MEMBER_HEADER_SIZE = 60;
+
+/**
+ * 检查是否为 COFF Archive 文件
+ */
+export function isLibFile(buffer: Buffer): boolean {
+  if (buffer.length < 8) {
+    return false;
+  }
+  const magic = buffer.toString("ascii", 0, 8);
+  return magic === ARCHIVE_MAGIC;
+}
+
+/**
+ * 解析 Archive 成员头部
+ */
+function parseMemberHeader(
+  buffer: Buffer,
+  offset: number,
+): LibArchiveMember | null {
+  if (offset + MEMBER_HEADER_SIZE > buffer.length) {
+    return null;
+  }
+
+  // 读取头部字段（全部为 ASCII 文本，空格填充）
+  const name = buffer.toString("ascii", offset, offset + 16).trim();
+  const timestamp = parseInt(
+    buffer.toString("ascii", offset + 16, offset + 28).trim(),
+    10,
+  );
+  const uid = parseInt(
+    buffer.toString("ascii", offset + 28, offset + 34).trim(),
+    10,
+  );
+  const gid = parseInt(
+    buffer.toString("ascii", offset + 34, offset + 40).trim(),
+    10,
+  );
+  const mode = parseInt(
+    buffer.toString("ascii", offset + 40, offset + 48).trim(),
+    8,
+  ); // 八进制
+  const size = parseInt(
+    buffer.toString("ascii", offset + 48, offset + 58).trim(),
+    10,
+  );
+  const endChar = buffer.toString("ascii", offset + 58, offset + 60);
+
+  // 验证结束标记
+  if (endChar !== "`\n") {
+    console.warn(`Invalid member header end marker at offset ${offset}`);
+    return null;
+  }
+
+  return {
+    name,
+    timestamp: isNaN(timestamp) ? 0 : timestamp,
+    uid: isNaN(uid) ? 0 : uid,
+    gid: isNaN(gid) ? 0 : gid,
+    mode: isNaN(mode) ? 0 : mode,
+    size: isNaN(size) ? 0 : size,
+    offset: offset + MEMBER_HEADER_SIZE,
+  };
+}
+
+/**
+ * 解析长文件名（扩展文件名表）
+ */
+function parseLongNames(data: Buffer): Map<number, string> {
+  const longNames = new Map<number, string>();
+  let currentOffset = 0;
+  const text = data.toString("ascii");
+
+  // 长文件名以换行符分隔
+  const lines = text.split("\n");
+  for (const line of lines) {
+    if (line.endsWith("/")) {
+      longNames.set(currentOffset, line.slice(0, -1));
+    }
+    currentOffset += line.length + 1; // +1 for newline
+  }
+
+  return longNames;
+}
+
+/**
+ * 解析第一链接器成员（符号索引）
+ */
+function parseFirstLinkerMember(data: Buffer): Map<string, number> {
+  const symbols = new Map<string, number>();
+
+  if (data.length < 4) {
+    console.log("First linker data too small:", data.length);
+    return symbols;
+  }
+
+  // 大端序读取符号数量
+  const symbolCount = data.readUInt32BE(0);
+  console.log(
+    "First linker member - symbolCount:",
+    symbolCount,
+    "data.length:",
+    data.length,
+  );
+  let offset = 4;
+
+  // 读取偏移量数组（大端序）
+  const offsets: number[] = [];
+  for (let i = 0; i < symbolCount && offset + 4 <= data.length; i++) {
+    offsets.push(data.readUInt32BE(offset));
+    offset += 4;
+  }
+  console.log("Read offsets:", offsets.length, "offset now:", offset);
+
+  // 读取符号名称（null 结尾字符串）
+  let symbolsParsed = 0;
+  for (let i = 0; i < symbolCount && offset < data.length; i++) {
+    const nullIndex = data.indexOf(0, offset);
+    if (nullIndex === -1) {
+      console.log("No null terminator found at offset:", offset);
+      break;
+    }
+    const symbolName = data.toString("ascii", offset, nullIndex);
+    symbols.set(symbolName, offsets[i]);
+    offset = nullIndex + 1;
+    symbolsParsed++;
+  }
+  console.log("Parsed symbols:", symbolsParsed, "out of", symbolCount);
+
+  return symbols;
+}
+
+/**
+ * 解析第二链接器成员（扩展符号索引）
+ */
+function parseSecondLinkerMember(data: Buffer): Map<string, number> {
+  const symbols = new Map<string, number>();
+
+  if (data.length < 4) {
+    return symbols;
+  }
+
+  // 小端序读取成员数量
+  const memberCount = data.readUInt32LE(0);
+  let offset = 4;
+
+  // 跳过成员偏移量数组
+  offset += memberCount * 4;
+
+  if (offset + 4 > data.length) {
+    return symbols;
+  }
+
+  // 读取符号数量
+  const symbolCount = data.readUInt32LE(offset);
+  offset += 4;
+
+  // 读取符号索引数组（指向成员）
+  const indices: number[] = [];
+  for (let i = 0; i < symbolCount && offset + 2 <= data.length; i++) {
+    indices.push(data.readUInt16LE(offset));
+    offset += 2;
+  }
+
+  // 读取符号名称（null 结尾字符串）
+  for (let i = 0; i < symbolCount && offset < data.length; i++) {
+    const nullIndex = data.indexOf(0, offset);
+    if (nullIndex === -1) {
+      break;
+    }
+    const symbolName = data.toString("ascii", offset, nullIndex);
+    symbols.set(symbolName, indices[i]);
+    offset = nullIndex + 1;
+  }
+
+  return symbols;
+}
+
+/**
+ * 解析 COFF Archive 文件
+ */
+export async function parseLibArchive(buffer: Buffer): Promise<LibArchiveData> {
+  if (!isLibFile(buffer)) {
+    throw new Error("Not a valid COFF Archive file");
+  }
+
+  const members: LibArchiveMember[] = [];
+  let offset = 8; // 跳过魔术字节
+  let longNames: Map<number, string> | null = null;
+  let symbolMap: Map<string, string> | null = null;
+  let firstLinkerSymbols: Map<string, number> | null = null;
+  let secondLinkerSymbols: Map<string, number> | null = null;
+
+  while (offset < buffer.length) {
+    const member = parseMemberHeader(buffer, offset);
+    if (!member) {
+      break;
+    }
+
+    // 读取成员数据
+    const dataEnd = member.offset + member.size;
+    if (dataEnd > buffer.length) {
+      console.warn(`Member data exceeds buffer length at offset ${offset}`);
+      break;
+    }
+    const dataBuffer = buffer.subarray(member.offset, dataEnd);
+    // 转换为数组以便JSON序列化
+    member.data = Array.from(dataBuffer);
+
+    // 处理特殊成员
+    if (member.name === "/" && firstLinkerSymbols === null) {
+      // 第一个 "/" 是第一链接器成员（符号索引）
+      firstLinkerSymbols = parseFirstLinkerMember(dataBuffer);
+    } else if (member.name === "/" && firstLinkerSymbols !== null) {
+      // 第二个 "/" 是第二链接器成员（扩展符号索引）
+      secondLinkerSymbols = parseSecondLinkerMember(dataBuffer);
+    } else if (member.name === "//") {
+      // "//" 是长文件名表
+      longNames = parseLongNames(dataBuffer);
+    } else if (member.name.match(/^\/\d+$/)) {
+      // 长文件名引用 /数字
+      const index = parseInt(member.name.substring(1), 10);
+      if (longNames && longNames.has(index)) {
+        member.name = longNames.get(index)!;
+      }
+    }
+
+    // 去掉文件名末尾的 '/'
+    if (member.name.endsWith("/") && member.name.length > 1) {
+      member.name = member.name.slice(0, -1);
+    }
+
+    members.push(member);
+
+    // 移动到下一个成员（2字节对齐）
+    offset = dataEnd;
+    if (offset % 2 !== 0) {
+      offset++;
+    }
+  }
+
+  // 构建符号到成员的映射
+  if (firstLinkerSymbols || secondLinkerSymbols) {
+    symbolMap = new Map<string, string>();
+
+    // 使用第二链接器成员（更详细）
+    if (secondLinkerSymbols) {
+      for (const [symbol, memberIndex] of secondLinkerSymbols) {
+        if (memberIndex < members.length) {
+          symbolMap.set(symbol, members[memberIndex].name);
+        }
+      }
+    }
+
+    // 如果没有第二链接器成员，使用第一链接器成员
+    if (symbolMap.size === 0 && firstLinkerSymbols) {
+      console.log(
+        "Using first linker member, symbols:",
+        firstLinkerSymbols.size,
+      );
+      const symbolEntries = Array.from(firstLinkerSymbols.entries()).slice(
+        0,
+        5,
+      );
+      console.log("First 5 symbol offsets:", JSON.stringify(symbolEntries));
+      const memberOffsets = members.slice(0, 5).map((m) => ({
+        name: m.name,
+        offset: m.offset,
+        headerOffset: m.offset - MEMBER_HEADER_SIZE,
+      }));
+      console.log("Member offsets:", JSON.stringify(memberOffsets));
+
+      // 第一链接器成员使用偏移量而非索引，需要查找对应成员
+      // 注意：偏移量指向成员头部的起始位置，而不是数据起始位置
+      for (const [symbol, memberOffset] of firstLinkerSymbols) {
+        // 查找头部偏移量匹配的成员（member.offset
+        // 是数据偏移，需要减去头部大小）
+        const member = members.find(
+          (m) => m.offset - MEMBER_HEADER_SIZE === memberOffset,
+        );
+        if (member) {
+          symbolMap.set(symbol, member.name);
+        }
+      }
+      console.log("Matched symbols from first linker:", symbolMap.size);
+    }
+  }
+
+  const symbolsObject = symbolMap ? Object.fromEntries(symbolMap) : undefined;
+  console.log("parseLibArchive returning:", {
+    memberCount: members.length,
+    symbolMapSize: symbolMap?.size || 0,
+    symbolsObjectKeys: symbolsObject ? Object.keys(symbolsObject).length : 0,
+    hasFirstLinker: !!firstLinkerSymbols,
+    hasSecondLinker: !!secondLinkerSymbols,
+  });
+
+  return {
+    members,
+    symbols: symbolsObject,
+  };
+}

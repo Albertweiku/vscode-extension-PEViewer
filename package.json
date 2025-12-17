@@ -1,8 +1,8 @@
 {
   "name": "pe-elf-viewer",
   "displayName": "PE/ELF Viewer",
-  "description": "Professional PE (Windows executables) and ELF (Linux shared objects) file structure viewer and analyzer with symbol decoding support",
-  "version": "1.2.0",
+  "description": "Professional PE (Windows executables), ELF (Linux shared objects), and LIB (COFF Archive) file structure viewer and analyzer with symbol decoding support",
+  "version": "2.0.0",
   "publisher": "Albertweiku",
   "license": "MIT",
   "icon": "media/icon.png",
@@ -17,9 +17,13 @@
   "keywords": [
     "PE",
     "ELF",
+    "LIB",
     "exe",
     "dll",
     "so",
+    "lib",
+    "COFF",
+    "archive",
     "binary",
     "executable",
     "analyzer",
@@ -78,6 +82,16 @@
           ".ko",
           ".elf"
         ]
+      },
+      {
+        "id": "lib",
+        "aliases": [
+          "LIB",
+          "COFF Archive"
+        ],
+        "extensions": [
+          ".lib"
+        ]
       }
     ],
     "customEditors": [
@@ -135,6 +149,9 @@
           },
           {
             "filenamePattern": "*.out"
+          },
+          {
+            "filenamePattern": "*.lib"
           }
         ]
       }

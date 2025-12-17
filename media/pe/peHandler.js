@@ -227,10 +227,16 @@ function buildPETree(parsedData, selectItem, templates) {
 
     // 控制资源节点的显示/隐藏
     const resourcesGroup = resourcesList?.closest("details.pe-tree-group");
+    console.log("[peHandler] totalResources:", totalResources);
+    console.log("[peHandler] resourcesGroup:", resourcesGroup);
     if (resourcesGroup) {
       if (totalResources === 0) {
+        console.log(
+          "[peHandler] Hiding resources group (totalResources === 0)",
+        );
         resourcesGroup.style.display = "none";
       } else {
+        console.log("[peHandler] Showing resources group");
         resourcesGroup.style.display = "";
       }
     }
@@ -260,9 +266,11 @@ function showPEOverview(
 
   hideSearchBox();
 
-  // 检测位数
+  // 检测位数和机器类型
   let is64Bit = false;
   let bitInfo = t("bit32");
+  let machineDesc = "Unknown";
+
   if (
     parsedData.nt_headers &&
     parsedData.nt_headers.OptionalHeader &&
@@ -275,17 +283,23 @@ function showPEOverview(
     }
   }
 
+  // 获取机器类型描述
+  if (parsedData.nt_headers && parsedData.nt_headers.FileHeader) {
+    const machineType = parsedData.nt_headers.FileHeader.Machine || 0;
+    machineDesc = getMachineTypeFullInfo(machineType);
+  }
+
   detailsTitle.textContent = `${t("peOverview")} (${bitInfo})`;
   peDetails.innerHTML = "";
 
   const container = document.createElement("div");
   container.className = "pe-details-section";
 
-  // 添加位数突出显示
+  // 添加位数和架构突出显示
   const archHeader = document.createElement("h4");
   archHeader.innerHTML = `${t("architectureInfo")}: <span style="color: ${
     is64Bit ? "#4CAF50" : "#2196F3"
-  }; font-weight: bold;">${bitInfo} ${t("bitPEFile")}</span>`;
+  }; font-weight: bold;">${machineDesc}</span>`;
   container.appendChild(archHeader);
 
   // DOS头信息
@@ -325,12 +339,11 @@ function showPEOverview(
     ]);
 
     if (parsedData.nt_headers.FileHeader) {
+      const machineType = parsedData.nt_headers.FileHeader.Machine || 0;
       ntRows.push([
         t("machineType"),
-        String(parsedData.nt_headers.FileHeader.Machine || "N/A"),
-        `0x${(parsedData.nt_headers.FileHeader.Machine || 0)
-          .toString(16)
-          .toUpperCase()}`,
+        getMachineTypeFullInfo(machineType),
+        `0x${machineType.toString(16).toUpperCase()}`,
         t("targetCPU"),
       ]);
       ntRows.push([
