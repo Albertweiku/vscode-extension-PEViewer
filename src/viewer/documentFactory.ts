@@ -6,10 +6,18 @@
 import { Parse } from "pe-parser";
 import * as vscode from "vscode";
 
-import { BinaryDocument, DocumentDelegate, ParsedData } from "./binaryDocument";
-import { ExtendedELFData, parseELF } from "./elfParser";
-import { detectFileType, FileType, getFileTypeName } from "./fileTypeDetector";
-import { LibArchiveData, parseLibArchive } from "./libParser";
+import {
+  BinaryDocument,
+  DocumentDelegate,
+  ParsedData,
+} from "../common/binaryDocument";
+import {
+  detectFileType,
+  FileType,
+  getFileTypeName,
+} from "../common/fileTypeDetector";
+import { ExtendedELFData, parseELF } from "../parsers/elf/elfParser";
+import { LibArchiveData, parseLibArchive } from "../parsers/lib/libParser";
 
 // PE 文件相关类型定义
 interface ImportFunction {

@@ -2,7 +2,7 @@
 // '在下面的代码中导入模块并使用别名 vscode 引用它
 import * as vscode from "vscode";
 
-import { BinaryViewerProvider } from "./peViewer";
+import { BinaryViewerProvider } from "./viewer/peViewer";
 
 // 当扩展被激活时调用此方法
 // 扩展在第一次执行命令时被激活

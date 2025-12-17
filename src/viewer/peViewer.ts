@@ -1,10 +1,11 @@
 import * as fs from "fs";
 import * as vscode from "vscode";
 
-import { BinaryDocument, DocumentDelegate } from "./binaryDocument";
-import { disposeAll } from "./dispose";
+import { BinaryDocument, DocumentDelegate } from "../common/binaryDocument";
+import { disposeAll } from "../common/dispose";
+import { getNonce } from "../common/util";
+
 import { BinaryFileDocument } from "./documentFactory";
-import { getNonce } from "./util";
 
 /**
  * 二进制文件查看器的提供者 (PE/ELF/LIB)
