@@ -3,21 +3,14 @@
  * 根据文件类型创建相应的文档对象
  */
 
-import { Parse } from "pe-parser";
-import * as vscode from "vscode";
+import {Parse} from 'pe-parser';
+import * as vscode from 'vscode';
 
-import {
-  BinaryDocument,
-  DocumentDelegate,
-  ParsedData,
-} from "../common/binaryDocument";
-import {
-  detectFileType,
-  FileType,
-  getFileTypeName,
-} from "../common/fileTypeDetector";
-import { ExtendedELFData, parseELF } from "../parsers/elf/elfParser";
-import { LibArchiveData, parseLibArchive } from "../parsers/lib/libParser";
+import {BinaryDocument, DocumentDelegate, ParsedData,} from '../common/binaryDocument';
+import {detectFileType, FileType, getFileTypeName,} from '../common/fileTypeDetector';
+import {ExtendedELFData, parseELF} from '../parsers/elf/elfParser';
+import {LibArchiveData, parseLibArchive} from '../parsers/lib/libParser';
+import {DumpbinData, isDumpbinAvailable, parsePEWithDumpbin,} from '../parsers/pe/dumpbinParser';
 
 // PE 文件相关类型定义
 interface ImportFunction {
@@ -68,6 +61,8 @@ interface PEData extends ParsedData {
   imports?: ImportDLL[];
   exports?: ExportTable;
   resources?: ResourceDirectory;
+  dumpbinData?: DumpbinData;
+  dataSource?: 'dumpbin'|'pe-parser';  // 标记数据来源
 }
 
 interface ELFData extends ParsedData {
@@ -181,12 +176,45 @@ class GenericBinaryDocument extends BinaryDocument {
     uri: vscode.Uri,
   ): Promise<PEData> {
     try {
+      // 优先尝试使用 dumpbin 解析
+      let dumpbinData: DumpbinData|null = null;
+
+      // 检查是否是Windows系统且文件有有效路径
+      if (process.platform === 'win32' && uri.scheme === 'file') {
+        try {
+          console.log('Attempting to parse PE file with dumpbin...');
+          dumpbinData = await parsePEWithDumpbin(uri.fsPath);
+
+          if (dumpbinData) {
+            console.log('Dumpbin parsing successful, using dumpbin data');
+            // 使用 dumpbin 数据构建 PEData
+            const peData = await GenericBinaryDocument.buildPEDataFromDumpbin(
+                buffer,
+                dumpbinData,
+            );
+            return peData;
+          } else {
+            console.log(
+                'Dumpbin parsing returned null, falling back to pe-parser');
+          }
+        } catch (dumpbinError) {
+          console.warn(
+              'Dumpbin parsing failed, falling back to pe-parser:',
+              dumpbinError);
+        }
+      } else {
+        console.log(
+            'Dumpbin not available (non-Windows or invalid URI), using pe-parser');
+      }
+
+      // 回退到 pe-parser
       const basicData = await Parse(buffer);
       const extendedData = await GenericBinaryDocument.parseExtendedPEData(
         buffer,
         basicData,
       );
-      console.log("PE parsing successful");
+      extendedData.dataSource = 'pe-parser';
+      console.log('PE parsing successful (using pe-parser)');
       return extendedData;
     } catch (error) {
       console.error("PE parsing failed:", error);
@@ -196,13 +224,105 @@ class GenericBinaryDocument extends BinaryDocument {
   }
 
   /**
+   * 从 dumpbin 数据构建 PEData
+   */
+  private static async buildPEDataFromDumpbin(
+      buffer: Buffer,
+      dumpbinData: DumpbinData,
+      ): Promise<PEData> {
+    // 仍然需要使用 pe-parser 获取基础结构信息（DOS header, NT headers等）
+    let basicData: any;
+    try {
+      basicData = await Parse(buffer);
+    } catch (error) {
+      console.warn(
+          'Failed to parse basic PE structure, using dumpbin data only:',
+          error);
+      basicData = {};
+    }
+
+    const peData: PEData = {
+      ...basicData,
+      fileType: 'PE',
+      dataSource: 'dumpbin',
+      dumpbinData: dumpbinData,
+    };
+
+    // 优先使用 dumpbin 解析的导入表数据
+    if (dumpbinData.imports && dumpbinData.imports.length > 0) {
+      peData.imports = dumpbinData.imports.map(
+          (dllImport) => ({
+            name: dllImport.dllName,
+            functions: dllImport.functions.map((func) => ({
+                                                 name: func.name,
+                                                 ordinal: func.ordinal,
+                                               })),
+          }));
+      console.log(`Loaded ${peData.imports.length} imports from dumpbin`);
+    } else {
+      // 回退到 pe-parser 的导入表解析
+      try {
+        peData.imports =
+            GenericBinaryDocument.parseImportTable(buffer, basicData);
+      } catch (error) {
+        console.warn('Failed to parse import table with pe-parser:', error);
+        peData.imports = [];
+      }
+    }
+
+    // 优先使用 dumpbin 解析的导出表数据
+    if (dumpbinData.exports && dumpbinData.exports.functions &&
+        dumpbinData.exports.functions.length > 0) {
+      peData.exports = {
+        name: dumpbinData.exports.name || '',
+        base: dumpbinData.exports.ordinalBase || 0,
+        numberOfFunctions: dumpbinData.exports.numberOfFunctions ||
+            dumpbinData.exports.functions.length,
+        numberOfNames: dumpbinData.exports.numberOfNames ||
+            dumpbinData.exports.functions.length,
+        addressOfFunctions: 0,
+        addressOfNames: 0,
+        addressOfNameOrdinals: 0,
+        functions: dumpbinData.exports.functions.map((func) => ({
+                                                       name: func.name || '',
+                                                       ordinal: func.ordinal,
+                                                       address: func.rva,
+                                                     })),
+      };
+      console.log(
+          `Loaded ${peData.exports.functions.length} exports from dumpbin`);
+    } else {
+      // 回退到 pe-parser 的导出表解析
+      try {
+        peData.exports =
+            GenericBinaryDocument.parseExportTable(buffer, basicData);
+      } catch (error) {
+        console.warn('Failed to parse export table with pe-parser:', error);
+        peData.exports = undefined;
+      }
+    }
+
+    // 资源表仍然使用 pe-parser 解析（dumpbin 的资源信息较难解析）
+    try {
+      peData.resources =
+          GenericBinaryDocument.parseResourceDirectory(buffer, basicData);
+    } catch (error) {
+      console.warn('Failed to parse resources:', error);
+      peData.resources = undefined;
+    }
+
+    return peData;
+  }
+
+  /**
    * 解析 PE 扩展数据（导入表、导出表、资源）
    */
   private static async parseExtendedPEData(
     fileData: Buffer,
     basicData: any,
   ): Promise<PEData> {
-    const extendedData: PEData = { ...basicData, fileType: "PE" };
+    const extendedData:
+        PEData = {...basicData, fileType: 'PE', dataSource: 'pe-parser'};
 
     try {
       extendedData.imports = GenericBinaryDocument.parseImportTable(
