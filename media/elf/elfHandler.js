@@ -638,6 +638,10 @@ function showELFExports(
   hideSearchBox,
   showSearchBox,
   showEmptyMessage,
+  createPageButton,
+  allELFExportRows,
+  currentELFExportPage,
+  elfExportPageSize,
 ) {
   if (!parsedData || !parsedData.elfData || !peDetails || !detailsTitle) {
     return;
@@ -657,11 +661,8 @@ function showELFExports(
 
   showSearchBox();
   detailsTitle.textContent = `${t("exports")} (${elfData.exports.functions.length})`;
-  peDetails.innerHTML = "";
 
-  const container = document.createElement("div");
-  container.className = "pe-details-section";
-
+  // 准备所有行数据
   const rows = elfData.exports.functions.map((func, index) => {
     return [
       String(index + 1),
@@ -673,23 +674,212 @@ function showELFExports(
     ];
   });
 
-  container.appendChild(
-    createTable(
-      t("exportSymbolList"),
-      [
-        t("symbolIndex"),
-        t("symbolName"),
-        t("address"),
-        t("size"),
-        t("symbolType"),
-        t("symbolBinding"),
-      ],
-      rows,
-      ["", "pe-details-value", "pe-details-hex", "pe-details-value", "", ""],
-    ),
-  );
+  // 更新共享的导出行数据
+  allELFExportRows.length = 0;
+  allELFExportRows.push(...rows);
 
-  peDetails.appendChild(container);
+  // 重置到第一页并渲染
+  currentELFExportPage.value = 1;
+  renderELFExportPage(
+    peDetails,
+    detailsTitle,
+    createTable,
+    createPageButton,
+    allELFExportRows,
+    currentELFExportPage,
+    elfExportPageSize,
+  );
+}
+
+/**
+ * 渲染 ELF 导出函数的当前页
+ */
+function renderELFExportPage(
+  peDetails,
+  detailsTitle,
+  createTable,
+  createPageButton,
+  allELFExportRows,
+  currentELFExportPage,
+  elfExportPageSize,
+) {
+  if (!peDetails) {
+    return;
+  }
+
+  const totalCount = allELFExportRows.length;
+  const totalPages = Math.ceil(totalCount / elfExportPageSize);
+  const startIndex = (currentELFExportPage.value - 1) * elfExportPageSize;
+  const endIndex = Math.min(startIndex + elfExportPageSize, totalCount);
+  const currentPageRows = allELFExportRows.slice(startIndex, endIndex);
+
+  // 清空详情区域
+  peDetails.innerHTML = "";
+
+  // 创建表格容器（带滚动）
+  const tableContainer = document.createElement("div");
+  tableContainer.className = "export-table-container";
+  tableContainer.style.overflowX = "auto";
+  tableContainer.style.overflowY = "auto";
+  tableContainer.style.maxHeight = "calc(100vh - 200px)";
+  tableContainer.style.marginBottom = "0";
+
+  // 创建表格
+  const tableFragment = createTable(
+    t("exportSymbolList"),
+    [
+      t("symbolIndex"),
+      t("symbolName"),
+      t("address"),
+      t("size"),
+      t("symbolType"),
+      t("symbolBinding"),
+    ],
+    currentPageRows,
+    ["", "pe-details-value", "pe-details-hex", "pe-details-value", "", ""],
+  );
+  tableContainer.appendChild(tableFragment);
+  peDetails.appendChild(tableContainer);
+
+  // 创建分页控件
+  const paginationContainer = createELFExportPaginationControls(
+    currentELFExportPage.value,
+    totalPages,
+    totalCount,
+    startIndex + 1,
+    endIndex,
+    peDetails,
+    detailsTitle,
+    createTable,
+    createPageButton,
+    allELFExportRows,
+    currentELFExportPage,
+    elfExportPageSize,
+  );
+  peDetails.appendChild(paginationContainer);
+}
+
+/**
+ * 创建 ELF 导出函数分页控件
+ * @param {number} page - 当前页
+ * @param {number} totalPages - 总页数
+ * @param {number} totalCount - 总条目数
+ * @param {number} startIndex - 起始索引(从1开始)
+ * @param {number} endIndex - 结束索引
+ * @param {HTMLElement} peDetails - 详情显示容器
+ * @param {HTMLElement} detailsTitle - 标题元素
+ * @param {Function} createTable - 创建表格的函数
+ * @param {Function} createPageButton - 创建分页按钮的函数
+ * @param {Array<string[]>} allELFExportRows - 所有导出行数据
+ * @param {{value: number}} currentELFExportPage - 当前页对象
+ * @param {number} elfExportPageSize - 每页大小
+ * @returns {HTMLElement}
+ */
+function createELFExportPaginationControls(
+  page,
+  totalPages,
+  totalCount,
+  startIndex,
+  endIndex,
+  peDetails,
+  detailsTitle,
+  createTable,
+  createPageButton,
+  allELFExportRows,
+  currentELFExportPage,
+  elfExportPageSize,
+) {
+  const container = document.createElement("div");
+  container.className = "pagination-container";
+  container.style.display = "flex";
+  container.style.justifyContent = "space-between";
+  container.style.alignItems = "center";
+  container.style.marginTop = "16px";
+  container.style.padding = "12px";
+  container.style.borderTop = "1px solid var(--vscode-panel-border)";
+
+  // 左侧：显示范围信息
+  const infoDiv = document.createElement("div");
+  infoDiv.style.fontSize = "12px";
+  infoDiv.style.color = "var(--vscode-descriptionForeground)";
+  infoDiv.textContent = `${t("showing")} ${startIndex}-${endIndex} ${t("of")} ${totalCount}`;
+  container.appendChild(infoDiv);
+
+  // 右侧：分页按钮
+  const buttonsDiv = document.createElement("div");
+  buttonsDiv.style.display = "flex";
+  buttonsDiv.style.gap = "8px";
+  buttonsDiv.style.alignItems = "center";
+
+  // 首页按钮
+  const firstBtn = createPageButton("⟪", page > 1, () => {
+    currentELFExportPage.value = 1;
+    renderELFExportPage(
+      peDetails,
+      detailsTitle,
+      createTable,
+      createPageButton,
+      allELFExportRows,
+      currentELFExportPage,
+      elfExportPageSize,
+    );
+  });
+  buttonsDiv.appendChild(firstBtn);
+
+  // 上一页按钮
+  const prevBtn = createPageButton("‹", page > 1, () => {
+    currentELFExportPage.value--;
+    renderELFExportPage(
+      peDetails,
+      detailsTitle,
+      createTable,
+      createPageButton,
+      allELFExportRows,
+      currentELFExportPage,
+      elfExportPageSize,
+    );
+  });
+  buttonsDiv.appendChild(prevBtn);
+
+  // 页码显示
+  const pageInfo = document.createElement("span");
+  pageInfo.style.fontSize = "12px";
+  pageInfo.style.padding = "0 8px";
+  pageInfo.textContent = `${page} / ${totalPages}`;
+  buttonsDiv.appendChild(pageInfo);
+
+  // 下一页按钮
+  const nextBtn = createPageButton("›", page < totalPages, () => {
+    currentELFExportPage.value++;
+    renderELFExportPage(
+      peDetails,
+      detailsTitle,
+      createTable,
+      createPageButton,
+      allELFExportRows,
+      currentELFExportPage,
+      elfExportPageSize,
+    );
+  });
+  buttonsDiv.appendChild(nextBtn);
+
+  // 末页按钮
+  const lastBtn = createPageButton("⟫", page < totalPages, () => {
+    currentELFExportPage.value = totalPages;
+    renderELFExportPage(
+      peDetails,
+      detailsTitle,
+      createTable,
+      createPageButton,
+      allELFExportRows,
+      currentELFExportPage,
+      elfExportPageSize,
+    );
+  });
+  buttonsDiv.appendChild(lastBtn);
+
+  container.appendChild(buttonsDiv);
+  return container;
 }
 
 /**
@@ -781,6 +971,10 @@ function showELFLibraryImports(
   hideSearchBox,
   showSearchBox,
   showEmptyMessage,
+  createPageButton,
+  allELFImportRows,
+  currentELFImportPage,
+  elfImportPageSize,
 ) {
   if (!peDetails || !detailsTitle) {
     return;
@@ -797,23 +991,209 @@ function showELFLibraryImports(
 
   showSearchBox();
   detailsTitle.textContent = `${lib.name} (${funcCount})`;
-  peDetails.innerHTML = "";
 
-  const container = document.createElement("div");
-  container.className = "pe-details-section";
-
+  // 准备所有行数据
   const rows = lib.functions.map((func, index) => {
     return [String(index + 1), func.name || "N/A", func.version || "N/A"];
   });
 
-  container.appendChild(
-    createTable(
-      t("importSymbolList"),
-      [t("symbolIndex"), t("symbolName"), t("symbolVersion")],
-      rows,
-      ["", "pe-details-value", ""],
-    ),
-  );
+  // 更新共享的导入行数据
+  allELFImportRows.length = 0;
+  allELFImportRows.push(...rows);
 
-  peDetails.appendChild(container);
+  // 重置到第一页并渲染
+  currentELFImportPage.value = 1;
+  renderELFImportPage(
+    peDetails,
+    detailsTitle,
+    createTable,
+    createPageButton,
+    allELFImportRows,
+    currentELFImportPage,
+    elfImportPageSize,
+  );
+}
+
+/**
+ * 渲染 ELF 导入函数的当前页
+ */
+function renderELFImportPage(
+  peDetails,
+  detailsTitle,
+  createTable,
+  createPageButton,
+  allELFImportRows,
+  currentELFImportPage,
+  elfImportPageSize,
+) {
+  if (!peDetails) {
+    return;
+  }
+
+  const totalCount = allELFImportRows.length;
+  const totalPages = Math.ceil(totalCount / elfImportPageSize);
+  const startIndex = (currentELFImportPage.value - 1) * elfImportPageSize;
+  const endIndex = Math.min(startIndex + elfImportPageSize, totalCount);
+  const currentPageRows = allELFImportRows.slice(startIndex, endIndex);
+
+  // 清空详情区域
+  peDetails.innerHTML = "";
+
+  // 创建表格容器（带滚动）
+  const tableContainer = document.createElement("div");
+  tableContainer.className = "import-table-container";
+  tableContainer.style.overflowX = "auto";
+  tableContainer.style.overflowY = "auto";
+  tableContainer.style.maxHeight = "calc(100vh - 200px)";
+  tableContainer.style.marginBottom = "0";
+
+  // 创建表格
+  const tableFragment = createTable(
+    t("importSymbolList"),
+    [t("symbolIndex"), t("symbolName"), t("symbolVersion")],
+    currentPageRows,
+    ["", "pe-details-value", ""],
+  );
+  tableContainer.appendChild(tableFragment);
+  peDetails.appendChild(tableContainer);
+
+  // 创建分页控件
+  const paginationContainer = createELFImportPaginationControls(
+    currentELFImportPage.value,
+    totalPages,
+    totalCount,
+    startIndex + 1,
+    endIndex,
+    peDetails,
+    detailsTitle,
+    createTable,
+    createPageButton,
+    allELFImportRows,
+    currentELFImportPage,
+    elfImportPageSize,
+  );
+  peDetails.appendChild(paginationContainer);
+}
+
+/**
+ * 创建 ELF 导入函数分页控件
+ * @param {number} page - 当前页
+ * @param {number} totalPages - 总页数
+ * @param {number} totalCount - 总条目数
+ * @param {number} startIndex - 起始索引(从1开始)
+ * @param {number} endIndex - 结束索引
+ * @param {HTMLElement} peDetails - 详情显示容器
+ * @param {HTMLElement} detailsTitle - 标题元素
+ * @param {Function} createTable - 创建表格的函数
+ * @param {Function} createPageButton - 创建分页按钮的函数
+ * @param {Array<string[]>} allELFImportRows - 所有导入行数据
+ * @param {{value: number}} currentELFImportPage - 当前页对象
+ * @param {number} elfImportPageSize - 每页大小
+ * @returns {HTMLElement}
+ */
+function createELFImportPaginationControls(
+  page,
+  totalPages,
+  totalCount,
+  startIndex,
+  endIndex,
+  peDetails,
+  detailsTitle,
+  createTable,
+  createPageButton,
+  allELFImportRows,
+  currentELFImportPage,
+  elfImportPageSize,
+) {
+  const container = document.createElement("div");
+  container.className = "pagination-container";
+  container.style.display = "flex";
+  container.style.justifyContent = "space-between";
+  container.style.alignItems = "center";
+  container.style.marginTop = "16px";
+  container.style.padding = "12px";
+  container.style.borderTop = "1px solid var(--vscode-panel-border)";
+
+  // 左侧：显示范围信息
+  const infoDiv = document.createElement("div");
+  infoDiv.style.fontSize = "12px";
+  infoDiv.style.color = "var(--vscode-descriptionForeground)";
+  infoDiv.textContent = `${t("showing")} ${startIndex}-${endIndex} ${t("of")} ${totalCount}`;
+  container.appendChild(infoDiv);
+
+  // 右侧：分页按钮
+  const buttonsDiv = document.createElement("div");
+  buttonsDiv.style.display = "flex";
+  buttonsDiv.style.gap = "8px";
+  buttonsDiv.style.alignItems = "center";
+
+  // 首页按钮
+  const firstBtn = createPageButton("⟪", page > 1, () => {
+    currentELFImportPage.value = 1;
+    renderELFImportPage(
+      peDetails,
+      detailsTitle,
+      createTable,
+      createPageButton,
+      allELFImportRows,
+      currentELFImportPage,
+      elfImportPageSize,
+    );
+  });
+  buttonsDiv.appendChild(firstBtn);
+
+  // 上一页按钮
+  const prevBtn = createPageButton("‹", page > 1, () => {
+    currentELFImportPage.value--;
+    renderELFImportPage(
+      peDetails,
+      detailsTitle,
+      createTable,
+      createPageButton,
+      allELFImportRows,
+      currentELFImportPage,
+      elfImportPageSize,
+    );
+  });
+  buttonsDiv.appendChild(prevBtn);
+
+  // 页码显示
+  const pageInfo = document.createElement("span");
+  pageInfo.style.fontSize = "12px";
+  pageInfo.style.padding = "0 8px";
+  pageInfo.textContent = `${page} / ${totalPages}`;
+  buttonsDiv.appendChild(pageInfo);
+
+  // 下一页按钮
+  const nextBtn = createPageButton("›", page < totalPages, () => {
+    currentELFImportPage.value++;
+    renderELFImportPage(
+      peDetails,
+      detailsTitle,
+      createTable,
+      createPageButton,
+      allELFImportRows,
+      currentELFImportPage,
+      elfImportPageSize,
+    );
+  });
+  buttonsDiv.appendChild(nextBtn);
+
+  // 末页按钮
+  const lastBtn = createPageButton("⟫", page < totalPages, () => {
+    currentELFImportPage.value = totalPages;
+    renderELFImportPage(
+      peDetails,
+      detailsTitle,
+      createTable,
+      createPageButton,
+      allELFImportRows,
+      currentELFImportPage,
+      elfImportPageSize,
+    );
+  });
+  buttonsDiv.appendChild(lastBtn);
+
+  container.appendChild(buttonsDiv);
+  return container;
 }
