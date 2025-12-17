@@ -435,6 +435,10 @@
           hideSearchBox,
           showSearchBox,
           showEmptyMessage,
+          createPageButton,
+          allELFExportRows,
+          currentELFExportPage,
+          elfExportPageSize,
         );
         return;
       }
@@ -469,6 +473,10 @@
               hideSearchBox,
               showSearchBox,
               showEmptyMessage,
+              createPageButton,
+              allELFImportRows,
+              currentELFImportPage,
+              elfImportPageSize,
             );
             return;
           }
@@ -884,10 +892,26 @@
   let currentImportPage = 1;
   const importPageSize = 100; // 每页显示100条
 
+  // ELF 导出函数分页相关变量
+  /** @type {Array<string[]>} */
+  let allELFExportRows = [];
+  let currentELFExportPage = { value: 1 };
+  const elfExportPageSize = 100; // 每页显示100条
+
+  // ELF 导入函数分页相关变量
+  /** @type {Array<string[]>} */
+  let allELFImportRows = [];
+  let currentELFImportPage = { value: 1 };
+  const elfImportPageSize = 100; // 每页显示100条
+
   // 搜索相关变量
   /** @type {HTMLTableRowElement[]} */
   let currentSearchMatches = [];
   let currentSearchIndex = -1;
+  /** @type {number[]} - 在原始数据中匹配的索引列表（用于跨页搜索） */
+  let allMatchedIndices = [];
+  /** @type {string} - 当前搜索文本 */
+  let currentSearchText = "";
 
   /**
    * 显示搜索框
@@ -991,13 +1015,240 @@
     clearSearchHighlights();
     currentSearchMatches = [];
     currentSearchIndex = -1;
+    allMatchedIndices = [];
+    currentSearchText = "";
 
     if (!searchText) {
       updateSearchCount();
       return;
     }
 
-    // 搜索表格行
+    currentSearchText = searchText;
+
+    // 检查是否在导出函数页面（有分页数据）
+    if (allExportRows.length > 0) {
+      performSearchInExports(searchText);
+      return;
+    }
+
+    // 检查是否在导入函数页面（有分页数据）
+    if (allImportRows.length > 0) {
+      performSearchInImports(searchText);
+      return;
+    }
+
+    // 检查是否在 ELF 导出函数页面（有分页数据）
+    if (allELFExportRows.length > 0) {
+      performSearchInELFExports(searchText);
+      return;
+    }
+
+    // 检查是否在 ELF 导入函数页面（有分页数据）
+    if (allELFImportRows.length > 0) {
+      performSearchInELFImports(searchText);
+      return;
+    }
+
+    // 否则，搜索当前页面的表格行（用于其他不分页的表格）
+    searchCurrentPageTable(searchText);
+  }
+
+  /**
+   * 在导出函数数据中搜索
+   * @param {string} searchText - 搜索文本
+   */
+  function performSearchInExports(searchText) {
+    allMatchedIndices = [];
+
+    // 在所有导出函数数据中搜索
+    allExportRows.forEach((row, index) => {
+      // row = [ordinal, address, decodedName, originalName]
+      const matched = row.some((cell) =>
+        String(cell).toLowerCase().includes(searchText),
+      );
+      if (matched) {
+        allMatchedIndices.push(index);
+      }
+    });
+
+    if (allMatchedIndices.length === 0) {
+      updateSearchCount();
+      return;
+    }
+
+    // 跳转到第一个匹配项所在的页面
+    const firstMatchIndex = allMatchedIndices[0];
+    const targetPage = Math.floor(firstMatchIndex / pageSize) + 1;
+
+    if (targetPage !== currentPage) {
+      currentPage = targetPage;
+      renderExportPage();
+    }
+
+    // 等待DOM更新后，在当前页面中高亮匹配项
+    setTimeout(() => {
+      highlightMatchesInCurrentPage(searchText, true);
+      // 设置当前索引为0（第一个匹配项）
+      currentSearchIndex = 0;
+      updateSearchCount();
+    }, 50);
+  }
+
+  /**
+   * 在导入函数数据中搜索
+   * @param {string} searchText - 搜索文本
+   */
+  function performSearchInImports(searchText) {
+    allMatchedIndices = [];
+
+    // 在所有导入函数数据中搜索
+    allImportRows.forEach((row, index) => {
+      // row = [dllName, functionName, type]
+      const matched = row.some((cell) =>
+        String(cell).toLowerCase().includes(searchText),
+      );
+      if (matched) {
+        allMatchedIndices.push(index);
+      }
+    });
+
+    if (allMatchedIndices.length === 0) {
+      updateSearchCount();
+      return;
+    }
+
+    // 跳转到第一个匹配项所在的页面
+    const firstMatchIndex = allMatchedIndices[0];
+    const targetPage = Math.floor(firstMatchIndex / importPageSize) + 1;
+
+    if (targetPage !== currentImportPage) {
+      currentImportPage = targetPage;
+      renderImportPage();
+    }
+
+    // 等待DOM更新后，在当前页面中高亮匹配项
+    setTimeout(() => {
+      highlightMatchesInCurrentPage(searchText, true);
+      // 设置当前索引为0（第一个匹配项）
+      currentSearchIndex = 0;
+      updateSearchCount();
+    }, 50);
+  }
+
+  /**
+   * 在 ELF 导出函数数据中搜索
+   * @param {string} searchText - 搜索文本
+   */
+  function performSearchInELFExports(searchText) {
+    allMatchedIndices = [];
+
+    // 在所有 ELF 导出函数数据中搜索
+    allELFExportRows.forEach((row, index) => {
+      // row = [index, name, address, size, type, binding]
+      const matched = row.some((cell) =>
+        String(cell).toLowerCase().includes(searchText),
+      );
+      if (matched) {
+        allMatchedIndices.push(index);
+      }
+    });
+
+    if (allMatchedIndices.length === 0) {
+      updateSearchCount();
+      return;
+    }
+
+    // 跳转到第一个匹配项所在的页面
+    const firstMatchIndex = allMatchedIndices[0];
+    const targetPage = Math.floor(firstMatchIndex / elfExportPageSize) + 1;
+
+    if (targetPage !== currentELFExportPage.value) {
+      currentELFExportPage.value = targetPage;
+      // 需要获取必要的参数来渲染页面
+      // 这些参数应该在调用时可用
+      const peDetails = document.getElementById("peDetails");
+      const detailsTitle = document.getElementById("detailsTitle");
+      if (peDetails && detailsTitle) {
+        renderELFExportPage(
+          peDetails,
+          detailsTitle,
+          createTable,
+          createPageButton,
+          allELFExportRows,
+          currentELFExportPage,
+          elfExportPageSize,
+        );
+      }
+    }
+
+    // 等待DOM更新后，在当前页面中高亮匹配项
+    setTimeout(() => {
+      highlightMatchesInCurrentPage(searchText, true);
+      // 设置当前索引为0（第一个匹配项）
+      currentSearchIndex = 0;
+      updateSearchCount();
+    }, 50);
+  }
+
+  /**
+   * 在 ELF 导入函数数据中搜索
+   * @param {string} searchText - 搜索文本
+   */
+  function performSearchInELFImports(searchText) {
+    allMatchedIndices = [];
+
+    // 在所有 ELF 导入函数数据中搜索
+    allELFImportRows.forEach((row, index) => {
+      // row = [index, name, version]
+      const matched = row.some((cell) =>
+        String(cell).toLowerCase().includes(searchText),
+      );
+      if (matched) {
+        allMatchedIndices.push(index);
+      }
+    });
+
+    if (allMatchedIndices.length === 0) {
+      updateSearchCount();
+      return;
+    }
+
+    // 跳转到第一个匹配项所在的页面
+    const firstMatchIndex = allMatchedIndices[0];
+    const targetPage = Math.floor(firstMatchIndex / elfImportPageSize) + 1;
+
+    if (targetPage !== currentELFImportPage.value) {
+      currentELFImportPage.value = targetPage;
+      // 需要获取必要的参数来渲染页面
+      const peDetails = document.getElementById("peDetails");
+      const detailsTitle = document.getElementById("detailsTitle");
+      if (peDetails && detailsTitle) {
+        renderELFImportPage(
+          peDetails,
+          detailsTitle,
+          createTable,
+          createPageButton,
+          allELFImportRows,
+          currentELFImportPage,
+          elfImportPageSize,
+        );
+      }
+    }
+
+    // 等待DOM更新后，在当前页面中高亮匹配项
+    setTimeout(() => {
+      highlightMatchesInCurrentPage(searchText, true);
+      // 设置当前索引为0（第一个匹配项）
+      currentSearchIndex = 0;
+      updateSearchCount();
+    }, 50);
+  }
+
+  /**
+   * 在当前页面的表格中搜索（用于非分页表格）
+   * @param {string} searchText - 搜索文本
+   */
+  function searchCurrentPageTable(searchText) {
     const table = peDetails?.querySelector(".pe-details-table");
     if (!table) {
       updateSearchCount();
@@ -1022,13 +1273,57 @@
         const tableRow = /** @type {HTMLTableRowElement} */ (row);
         currentSearchMatches.push(tableRow);
       }
-    }); // 如果有匹配结果，高亮第一个
+    });
+
+    // 如果有匹配结果，高亮第一个
     if (currentSearchMatches.length > 0) {
       currentSearchIndex = 0;
       highlightCurrentMatch();
     }
 
     updateSearchCount();
+  }
+
+  /**
+   * 在当前页面中高亮所有匹配项
+   * @param {string} searchText - 搜索文本
+   * @param {boolean} [resetIndex=false] - 是否重置索引到第一个匹配项
+   */
+  function highlightMatchesInCurrentPage(searchText, resetIndex = false) {
+    clearSearchHighlights();
+    currentSearchMatches = [];
+    // 不再重置 currentSearchIndex，保持全局导航状态
+
+    const table = peDetails?.querySelector(".pe-details-table");
+    if (!table) {
+      updateSearchCount();
+      return;
+    }
+
+    const rows = table.querySelectorAll("tbody tr");
+    rows.forEach((row) => {
+      const cells = row.querySelectorAll("td");
+      let matched = false;
+
+      cells.forEach((cell) => {
+        const text = cell.textContent?.toLowerCase() || "";
+        if (text.includes(searchText)) {
+          matched = true;
+        }
+      });
+
+      if (matched) {
+        row.classList.add("highlight");
+        const tableRow = /** @type {HTMLTableRowElement} */ (row);
+        currentSearchMatches.push(tableRow);
+      }
+    });
+
+    // 只在首次搜索或明确要求时重置索引
+    if (resetIndex && currentSearchMatches.length > 0) {
+      currentSearchIndex = 0;
+      highlightCurrentMatch();
+    }
   }
 
   /**
@@ -1075,6 +1370,13 @@
    * @param {number} direction - 1表示下一个，-1表示上一个
    */
   function navigateSearchResults(direction) {
+    // 如果有全局匹配索引（分页搜索），使用跨页导航
+    if (allMatchedIndices.length > 0) {
+      navigateSearchResultsAcrossPages(direction);
+      return;
+    }
+
+    // 否则使用当前页内导航
     if (currentSearchMatches.length === 0) {
       return;
     }
@@ -1093,6 +1395,149 @@
   }
 
   /**
+   * 跨页导航搜索结果
+   * @param {number} direction - 1表示下一个，-1表示上一个
+   */
+  function navigateSearchResultsAcrossPages(direction) {
+    if (allMatchedIndices.length === 0) {
+      return;
+    }
+
+    currentSearchIndex += direction;
+
+    // 循环导航
+    if (currentSearchIndex >= allMatchedIndices.length) {
+      currentSearchIndex = 0;
+    } else if (currentSearchIndex < 0) {
+      currentSearchIndex = allMatchedIndices.length - 1;
+    }
+
+    const globalIndex = allMatchedIndices[currentSearchIndex];
+
+    // 判断是 PE 导出、PE 导入、ELF 导出还是 ELF 导入，并计算目标页面
+    let targetPage;
+    let needPageChange = false;
+    let pageSize_;
+    let currentPage_;
+
+    if (allExportRows.length > 0) {
+      // PE 导出
+      pageSize_ = pageSize;
+      currentPage_ = currentPage;
+      targetPage = Math.floor(globalIndex / pageSize_) + 1;
+      if (targetPage !== currentPage_) {
+        currentPage = targetPage;
+        currentPage_ = targetPage; // 更新 currentPage_ 为新页码
+        renderExportPage();
+        needPageChange = true;
+      }
+    } else if (allImportRows.length > 0) {
+      // PE 导入
+      pageSize_ = importPageSize;
+      currentPage_ = currentImportPage;
+      targetPage = Math.floor(globalIndex / pageSize_) + 1;
+      if (targetPage !== currentPage_) {
+        currentImportPage = targetPage;
+        currentPage_ = targetPage; // 更新 currentPage_ 为新页码
+        renderImportPage();
+        needPageChange = true;
+      }
+    } else if (allELFExportRows.length > 0) {
+      // ELF 导出
+      pageSize_ = elfExportPageSize;
+      currentPage_ = currentELFExportPage.value;
+      targetPage = Math.floor(globalIndex / pageSize_) + 1;
+      if (targetPage !== currentPage_) {
+        currentELFExportPage.value = targetPage;
+        currentPage_ = targetPage; // 更新 currentPage_ 为新页码
+        const peDetails = document.getElementById("peDetails");
+        const detailsTitle = document.getElementById("detailsTitle");
+        if (peDetails && detailsTitle) {
+          renderELFExportPage(
+            peDetails,
+            detailsTitle,
+            createTable,
+            createPageButton,
+            allELFExportRows,
+            currentELFExportPage,
+            elfExportPageSize,
+          );
+        }
+        needPageChange = true;
+      }
+    } else if (allELFImportRows.length > 0) {
+      // ELF 导入
+      pageSize_ = elfImportPageSize;
+      currentPage_ = currentELFImportPage.value;
+      targetPage = Math.floor(globalIndex / pageSize_) + 1;
+      if (targetPage !== currentPage_) {
+        currentELFImportPage.value = targetPage;
+        currentPage_ = targetPage; // 更新 currentPage_ 为新页码
+        const peDetails = document.getElementById("peDetails");
+        const detailsTitle = document.getElementById("detailsTitle");
+        if (peDetails && detailsTitle) {
+          renderELFImportPage(
+            peDetails,
+            detailsTitle,
+            createTable,
+            createPageButton,
+            allELFImportRows,
+            currentELFImportPage,
+            elfImportPageSize,
+          );
+        }
+        needPageChange = true;
+      }
+    }
+
+    if (needPageChange) {
+      // 页面切换后，等待DOM更新再高亮
+      setTimeout(() => {
+        // 保持当前的 currentSearchIndex，不重置
+        highlightMatchesInCurrentPage(currentSearchText, false);
+        // 找到当前全局索引在当前页内的位置
+        const startIndex = (currentPage_ - 1) * pageSize_;
+        const matchesInPage = allMatchedIndices.filter(
+          (idx) => idx >= startIndex && idx < startIndex + pageSize_,
+        );
+        const localIndex = matchesInPage.indexOf(globalIndex);
+        if (localIndex >= 0 && localIndex < currentSearchMatches.length) {
+          // 更新DOM中的当前匹配索引
+          currentSearchMatches.forEach((row) => {
+            row.classList.remove("highlight-current");
+          });
+          if (currentSearchMatches[localIndex]) {
+            currentSearchMatches[localIndex].classList.add("highlight-current");
+            currentSearchMatches[localIndex].scrollIntoView({
+              behavior: "smooth",
+              block: "center",
+            });
+          }
+        }
+        updateSearchCount();
+      }, 50);
+    } else {
+      // 同一页内，直接高亮
+      const startIndex = (currentPage_ - 1) * pageSize_;
+      const matchesInPage = allMatchedIndices.filter(
+        (idx) => idx >= startIndex && idx < startIndex + pageSize_,
+      );
+      const localIndex = matchesInPage.indexOf(globalIndex);
+      if (localIndex >= 0 && localIndex < currentSearchMatches.length) {
+        currentSearchMatches.forEach((row) => {
+          row.classList.remove("highlight-current");
+        });
+        currentSearchMatches[localIndex].classList.add("highlight-current");
+        currentSearchMatches[localIndex].scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+        });
+      }
+      updateSearchCount();
+    }
+  }
+
+  /**
    * 更新搜索计数显示
    */
   function updateSearchCount() {
@@ -1101,7 +1546,17 @@
       return;
     }
 
-    if (currentSearchMatches.length === 0) {
+    // 如果有全局匹配索引，显示全局计数
+    if (allMatchedIndices.length > 0) {
+      if (
+        currentSearchIndex >= 0 &&
+        currentSearchIndex < allMatchedIndices.length
+      ) {
+        searchCount.textContent = `${currentSearchIndex + 1} / ${allMatchedIndices.length}`;
+      } else {
+        searchCount.textContent = `0 / ${allMatchedIndices.length}`;
+      }
+    } else if (currentSearchMatches.length === 0) {
       searchCount.textContent = "";
     } else {
       searchCount.textContent = `${currentSearchIndex + 1} / ${currentSearchMatches.length}`;
@@ -1115,35 +1570,6 @@
    * @returns {string} - 解码后的函数名,如果无法解码则返回原始名称
    */
   function demangleFunctionName(mangled) {
-    // 检查是否为合法的编码字符
-    function isMsvcMangleChar(/** @type {string} */ c) {
-      return (
-        (c >= "a" && c <= "z") ||
-        (c >= "A" && c <= "Z") ||
-        (c >= "0" && c <= "9") ||
-        "?_@$".includes(c)
-      );
-    }
-
-    function isItaniumMangleChar(/** @type {string} */ c) {
-      return (
-        (c >= "a" && c <= "z") ||
-        (c >= "A" && c <= "Z") ||
-        (c >= "0" && c <= "9") ||
-        c === "_" ||
-        c === "$"
-      );
-    }
-
-    function isRustMangleChar(/** @type {string} */ c) {
-      return (
-        (c >= "a" && c <= "z") ||
-        (c >= "A" && c <= "Z") ||
-        (c >= "0" && c <= "9") ||
-        c === "_"
-      );
-    }
-
     // 检查是否为可能的符号前缀
     function isPlausibleItaniumPrefix(/** @type {string} */ s) {
       // Itanium符号以1-4个下划线+Z开头

@@ -10,108 +10,132 @@
  * @param {any} templates - 模板对象
  */
 function buildPETree(parsedData, selectItem, templates) {
-  // 更新页面标题
-  const treeHeader = document.getElementById("peTreeHeader");
-  if (treeHeader) {
-    treeHeader.textContent = t("peViewerTitle");
-  }
+  console.log("buildPETree called");
+  console.log("parsedData:", parsedData);
+  console.log("exports count:", parsedData.exports?.functions?.length || 0);
+  console.log("imports count:", parsedData.imports?.length || 0);
+  console.log("sections count:", parsedData.sections?.length || 0);
 
-  // 更新 HTML title
-  document.title = "PEViewer - PE File Viewer";
-
-  // 确保 PE 特定的项显示
-  const peSpecificItems = [
-    "dos_header",
-    "coff_header",
-    "optional_header",
-    "data_directory",
-  ];
-  peSpecificItems.forEach((itemId) => {
-    const element = document.querySelector(`[data-item="${itemId}"]`);
-    if (element && element.parentElement) {
-      element.parentElement.style.display = "";
+  try {
+    // 更新页面标题
+    const treeHeader = document.getElementById("peTreeHeader");
+    if (treeHeader) {
+      treeHeader.textContent = t("peViewerTitle");
     }
-  });
 
-  // 更新导出函数计数并控制显示/隐藏
-  const exportCount = document.getElementById("exportCount");
-  const exportsItem = document.querySelector('[data-item="exports"]');
-  if (exportCount) {
-    const count =
-      parsedData.exports && parsedData.exports.functions
-        ? parsedData.exports.functions.length
-        : 0;
-    exportCount.textContent = `(${count})`;
-    if (exportsItem) {
-      if (count === 0) {
-        exportsItem.style.display = "none";
-      } else {
-        exportsItem.style.display = "";
-        // 确保点击事件已绑定
-        exportsItem.onclick = (e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          selectItem("exports");
-        };
+    // 更新 HTML title
+    document.title = "PEViewer - PE File Viewer";
+
+    // 确保 PE 特定的项显示
+    const peSpecificItems = [
+      "dos_header",
+      "coff_header",
+      "optional_header",
+      "data_directory",
+    ];
+    peSpecificItems.forEach((itemId) => {
+      const element = document.querySelector(`[data-item="${itemId}"]`);
+      if (element && element.parentElement) {
+        element.parentElement.style.display = "";
       }
-    }
-  }
-
-  // 动态生成导入DLL列表
-  const importsList = document.getElementById("importsList");
-  const importCount = document.getElementById("importCount");
-  const importsGroup = importsList?.closest("details.pe-tree-group");
-  let totalImportFunctions = 0;
-
-  if (
-    importsList &&
-    parsedData.imports &&
-    parsedData.imports.length > 0 &&
-    templates.importDllItem
-  ) {
-    importsList.innerHTML = "";
-    parsedData.imports.forEach((dll, index) => {
-      const funcCount = dll.functions ? dll.functions.length : 0;
-      totalImportFunctions += funcCount;
-
-      // 使用模板创建元素
-      if (!templates.importDllItem) {
-        return;
-      }
-      const clone = templates.importDllItem.content.cloneNode(true);
-      const item = clone.querySelector(".pe-tree-item");
-      if (item) {
-        item.setAttribute("data-item", `imports.${index}`);
-        item.setAttribute("data-dll", dll.name);
-        const nameSpan = item.querySelector(".dll-name");
-        const countSpan = item.querySelector(".pe-tree-count");
-        if (nameSpan) {
-          nameSpan.textContent = dll.name;
-        }
-        if (countSpan) {
-          countSpan.textContent = `(${funcCount})`;
-        }
-        // 绑定点击事件
-        item.addEventListener("click", (e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          selectItem(`imports.${index}`);
-        });
-      }
-      importsList.appendChild(clone);
     });
+  } catch (error) {
+    console.error("Error in buildPETree header setup:", error);
   }
 
-  // 更新导入函数总数并控制显示/隐藏
-  if (importCount) {
-    importCount.textContent = `(${totalImportFunctions})`;
-  }
-  if (importsGroup) {
-    if (totalImportFunctions === 0) {
-      importsGroup.style.display = "none";
-    } else {
-      importsGroup.style.display = "";
+  try {
+    // 更新导出函数计数并控制显示/隐藏
+    const exportCount = document.getElementById("exportCount");
+    const exportsItem = document.querySelector('[data-item="exports"]');
+    if (exportCount) {
+      const count =
+        parsedData.exports && parsedData.exports.functions
+          ? parsedData.exports.functions.length
+          : 0;
+      console.log("Setting export count:", count);
+      exportCount.textContent = `(${count})`;
+      if (exportsItem) {
+        if (count === 0) {
+          exportsItem.style.display = "none";
+        } else {
+          exportsItem.style.display = "";
+          // 确保点击事件已绑定
+          exportsItem.onclick = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            selectItem("exports");
+          };
+        }
+      }
     }
+  } catch (error) {
+    console.error("Error setting up exports:", error);
+  }
+
+  try {
+    // 动态生成导入DLL列表
+    const importsList = document.getElementById("importsList");
+    const importCount = document.getElementById("importCount");
+    const importsGroup = importsList?.closest("details.pe-tree-group");
+    let totalImportFunctions = 0;
+
+    if (
+      importsList &&
+      parsedData.imports &&
+      parsedData.imports.length > 0 &&
+      templates.importDllItem
+    ) {
+      console.log(
+        "Building imports list, DLL count:",
+        parsedData.imports.length,
+      );
+      importsList.innerHTML = "";
+      parsedData.imports.forEach((dll, index) => {
+        const funcCount = dll.functions ? dll.functions.length : 0;
+        totalImportFunctions += funcCount;
+
+        // 使用模板创建元素
+        if (!templates.importDllItem) {
+          return;
+        }
+        const clone = templates.importDllItem.content.cloneNode(true);
+        const item = clone.querySelector(".pe-tree-item");
+        if (item) {
+          item.setAttribute("data-item", `imports.${index}`);
+          item.setAttribute("data-dll", dll.name);
+          const nameSpan = item.querySelector(".dll-name");
+          const countSpan = item.querySelector(".pe-tree-count");
+          if (nameSpan) {
+            nameSpan.textContent = dll.name;
+          }
+          if (countSpan) {
+            countSpan.textContent = `(${funcCount})`;
+          }
+          // 绑定点击事件
+          item.addEventListener("click", (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            selectItem(`imports.${index}`);
+          });
+        }
+        importsList.appendChild(clone);
+      });
+      console.log("Imports list built, total functions:", totalImportFunctions);
+    }
+
+    // 更新导入函数总数并控制显示/隐藏
+    if (importCount) {
+      importCount.textContent = `(${totalImportFunctions})`;
+    }
+    if (importsGroup) {
+      if (totalImportFunctions === 0) {
+        importsGroup.style.display = "none";
+      } else {
+        importsGroup.style.display = "";
+      }
+    }
+  } catch (error) {
+    console.error("Error setting up imports:", error);
   }
 
   // 动态生成区段列表
