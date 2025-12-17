@@ -265,6 +265,14 @@ export class BinaryViewerProvider implements vscode.CustomEditorProvider<BinaryD
         "machineTypes.js",
       ),
     );
+    const demangleUri = webview.asWebviewUri(
+      vscode.Uri.joinPath(
+        this._context.extensionUri,
+        "media",
+        "shared",
+        "demangle.js",
+      ),
+    );
     const resourceHandlerUri = webview.asWebviewUri(
       vscode.Uri.joinPath(
         this._context.extensionUri,
@@ -383,6 +391,7 @@ export class BinaryViewerProvider implements vscode.CustomEditorProvider<BinaryD
       .replace(/\$\{styleMainUri\}/g, styleMainUri.toString())
       .replace(/\$\{localesUri\}/g, localesUri.toString())
       .replace(/\$\{machineTypesUri\}/g, machineTypesUri.toString())
+      .replace(/\$\{demangleUri\}/g, demangleUri.toString())
       .replace(/\$\{resourceHandlerUri\}/g, resourceHandlerUri.toString())
       .replace(/\$\{peHandlerUri\}/g, peHandlerUri.toString())
       .replace(/\$\{elfHandlerUri\}/g, elfHandlerUri.toString())
