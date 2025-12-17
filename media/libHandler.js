@@ -3,6 +3,111 @@
  */
 
 /**
+ * 创建LIB详情表格
+ * @param {string} title - 表格标题
+ * @param {Array<[string, string, string?]>} rows - 表格行 [标签, 值,
+ *     描述(可选)]
+ * @returns {string}
+ */
+function createLibTable(title, rows) {
+  let html = `<h3>${title}</h3>`;
+  html += '<table>';
+
+  rows.forEach(([label, value, description]) => {
+    html += `<tr><th>${label}</th><td>${value}`;
+    if (description) {
+      html += ` <span class="lib-description">${description}</span>`;
+    }
+    html += '</td></tr>';
+  });
+
+  html += '</table>';
+  return html;
+}
+
+/**
+ * 创建LIB列表表格
+ * @param {string} title - 表格标题
+ * @param {string[]} headers - 表头
+ * @param {Array<string[]>} rows - 数据行
+ * @param {Object} options - 可选配置
+ * @returns {string}
+ */
+function createLibListTable(title, headers, rows, options = {}) {
+  const {searchable = false, searchId = '', maxDisplay = 1000} = options;
+
+  let html = `<h3>${title}</h3>`;
+
+  // 如果需要搜索框
+  if (searchable) {
+    html += `<div class="lib-search-container">`;
+    html += `<input type="text" id="${searchId}" placeholder="${
+        t('libSearchPlaceholder')}" class="lib-search-input" />`;
+    html += `<div id="${searchId}Info" class="lib-search-info"></div>`;
+    html += `</div>`;
+  }
+
+  html += '<table>';
+
+  // 表头
+  html += '<tr>';
+  headers.forEach(header => {
+    html += `<th>${header}</th>`;
+  });
+  html += '</tr>';
+
+  // 数据行
+  let displayCount = 0;
+  rows.forEach(row => {
+    if (displayCount >= maxDisplay) {
+      return;
+    }
+
+    const rowClass = searchable ? 'lib-searchable-row' : '';
+    const dataAttr = searchable && row.length > 0 ?
+        `data-search="${escapeHtml(row[0].toLowerCase())}"` :
+        '';
+
+    html += `<tr class="${rowClass}" ${dataAttr}>`;
+    row.forEach(cell => {
+      html += `<td>${cell}</td>`;
+    });
+    html += '</tr>';
+    displayCount++;
+  });
+
+  // 如果有更多数据未显示
+  if (rows.length > maxDisplay) {
+    html += `<tr><td colspan="${headers.length}"><em>... ${
+        t('andMoreItems', {count: rows.length - maxDisplay})}</em></td></tr>`;
+  }
+
+  html += '</table>';
+  return html;
+}
+
+/**
+ * 设置LIB详情内容
+ * @param {string} title - 标题
+ * @param {string} content - HTML内容
+ */
+function setLibDetails(title, content) {
+  const detailsContent = document.getElementById('peDetails');
+  const detailsTitle = document.getElementById('detailsTitle');
+
+  if (!detailsContent) {
+    console.error('peDetails element not found');
+    return;
+  }
+
+  if (detailsTitle) {
+    detailsTitle.textContent = title;
+  }
+
+  detailsContent.innerHTML = content;
+}
+
+/**
  * 构建 LIB 文件的树形结构
  */
 function buildLibTree(parsedData) {
@@ -157,310 +262,213 @@ function buildLibTree(parsedData) {
  * 显示 LIB 文件总览
  */
 function showLibOverview(libData) {
-  console.log("showLibOverview called", libData);
-  const detailsContent = document.getElementById("peDetails");
-  if (!detailsContent) {
-    console.error("peDetails element not found");
-    return;
-  }
-
-  let html = `<h2>${t("libOverview")}</h2>`;
-
-  // 基本信息表格
-  html += "<h3>" + t("libBasicInfo") + "</h3>";
-  html += "<table>";
-
-  // 成员总数
   const totalMembers = libData.members ? libData.members.length : 0;
-  html += `<tr><th>${t("libMemberCount")}</th><td>${totalMembers}</td></tr>`;
-
-  // 普通成员数量
-  let normalMembers = 0;
-  if (libData.members) {
-    normalMembers = libData.members.filter(
-      (m) => m.name !== "/" && m.name !== "//",
-    ).length;
-  }
-  html += `<tr><th>${t("libNormalMemberCount")}</th><td>${normalMembers}</td></tr>`;
-
-  // 导出符号数量
+  const normalMembers = libData.members ?
+      libData.members.filter(m => m.name !== '/' && m.name !== '//').length :
+      0;
   const exportCount = libData.symbols ? Object.keys(libData.symbols).length : 0;
-  html += `<tr><th>${t("libExportCount")}</th><td>${exportCount}</td></tr>`;
 
-  // 总大小
   let totalSize = 0;
   if (libData.members) {
-    libData.members.forEach((member) => {
+    libData.members.forEach(member => {
       totalSize += member.size || 0;
     });
   }
-  html += `<tr><th>${t("libTotalSize")}</th><td>${totalSize} ${t("bytes")} (${formatSize(
-    totalSize,
-  )})</td></tr>`;
 
-  html += "</table>";
+  let html = '';
 
-  // 成员文件列表（显示前10个）
+  // 基本信息
+  const basicInfoRows = [
+    [t('libMemberCount'), totalMembers.toString()],
+    [t('libNormalMemberCount'), normalMembers.toString()],
+    [t('libExportCount'), exportCount.toString()],
+    [t('libTotalSize'), `${totalSize} ${t('bytes')}`, formatSize(totalSize)]
+  ];
+  html += createLibTable(t('libBasicInfo'), basicInfoRows);
+
+  // 成员文件列表（前10个）
   if (normalMembers > 0) {
-    html += "<h3>" + t("libTopMembers") + "</h3>";
-    html += "<table>";
-    html += `<tr><th>${t("libMemberName")}</th><th>${t("libMemberSize")}</th></tr>`;
-
+    const memberRows = [];
     let count = 0;
+
     for (const member of libData.members) {
-      if (member.name === "/" || member.name === "//") continue;
+      if (member.name === '/' || member.name === '//') continue;
       if (count >= 10) break;
 
-      html += `<tr><td>${escapeHtml(member.name)}</td><td>${member.size} ${t(
-        "bytes",
-      )}</td></tr>`;
+      memberRows.push(
+          [escapeHtml(member.name), `${member.size} ${t('bytes')}`]);
       count++;
     }
 
+    html += createLibListTable(
+        t('libTopMembers'), [t('libMemberName'), t('libMemberSize')],
+        memberRows);
+
     if (normalMembers > 10) {
-      html += `<tr><td colspan="2"><em>... ${t("andMoreMembers", {
-        count: normalMembers - 10,
-      })}</em></td></tr>`;
+      html += `<p class="lib-hint-text">... ${
+          t('andMoreMembers', {count: normalMembers - 10})}</p>`;
     }
-    html += "</table>";
   }
 
   // 导出符号统计
   if (exportCount > 0) {
-    html += "<h3>" + t("libExportStats") + "</h3>";
-    html += "<table>";
-    html += `<tr><th>${t("libExportCount")}</th><td>${exportCount}</td></tr>`;
-    html += `<tr><td colspan="2"><em>${t(
-      "libClickExportsForDetails",
-    )}</em></td></tr>`;
-    html += "</table>";
+    const exportStatsRows = [
+      [t('libExportCount'), exportCount.toString()],
+    ];
+    html += createLibTable(t('libExportStats'), exportStatsRows);
+    html += `<p class="lib-hint-text"><em>${
+        t('libClickExportsForDetails')}</em></p>`;
   }
 
-  console.log("Setting innerHTML", html.substring(0, 200));
-  detailsContent.innerHTML = html;
-}
-
-/**
- * 显示 LIB 文件头部信息
- */
-function showLibHeader(libData) {
-  const detailsContent = document.getElementById("peDetails");
-  let html = `<h2>${t("libHeader")}</h2>`;
-
-  html += "<table>";
-  html += `<tr><th>${t("libMemberCount")}</th><td>${
-    libData.members ? libData.members.length : 0
-  }</td></tr>`;
-
-  // 统计普通成员数量（排除特殊成员）
-  let normalMembers = 0;
-  if (libData.members) {
-    normalMembers = libData.members.filter(
-      (m) => m.name !== "/" && m.name !== "//",
-    ).length;
-  }
-  html += `<tr><th>${t("libNormalMemberCount")}</th><td>${normalMembers}</td></tr>`;
-
-  // 导出符号数量
-  if (libData.symbols) {
-    html += `<tr><th>${t("libExportCount")}</th><td>${
-      Object.keys(libData.symbols).length
-    }</td></tr>`;
-  }
-
-  // 计算总大小
-  let totalSize = 0;
-  if (libData.members) {
-    libData.members.forEach((member) => {
-      totalSize += member.size || 0;
-    });
-  }
-  html += `<tr><th>${t("libTotalSize")}</th><td>${totalSize} ${t(
-    "bytes",
-  )}</td></tr>`;
-
-  html += "</table>";
-
-  detailsContent.innerHTML = html;
+  setLibDetails(t('libOverview'), html);
 }
 
 /**
  * 显示成员详细信息
  */
 function showLibMember(member, index) {
-  const detailsContent = document.getElementById("peDetails");
-  let html = `<h2>${t("libMemberDetails")}: ${member.name}</h2>`;
+  let html = '';
 
-  html += "<table>";
-  html += `<tr><th>${t("libMemberName")}</th><td>${member.name}</td></tr>`;
-  html += `<tr><th>${t("libMemberIndex")}</th><td>${index}</td></tr>`;
-  html += `<tr><th>${t("libMemberSize")}</th><td>${member.size} ${t(
-    "bytes",
-  )}</td></tr>`;
-  html += `<tr><th>${t("libMemberOffset")}</th><td>0x${member.offset
-    .toString(16)
-    .toUpperCase()}</td></tr>`;
+  // 基本信息
+  const basicRows = [
+    [t('libMemberName'), escapeHtml(member.name)],
+    [t('libMemberIndex'), index.toString()],
+    [
+      t('libMemberSize'), `${member.size} ${t('bytes')}`,
+      formatSize(member.size)
+    ],
+    [t('libMemberOffset'), `0x${member.offset.toString(16).toUpperCase()}`]
+  ];
 
-  // 时间戳
   if (member.timestamp) {
     const date = new Date(member.timestamp * 1000);
-    html += `<tr><th>${t("libMemberTimestamp")}</th><td>${date.toLocaleString()}</td></tr>`;
+    basicRows.push([t('libMemberTimestamp'), date.toLocaleString()]);
   }
 
-  // UID/GID/Mode
   if (member.uid !== undefined) {
-    html += `<tr><th>${t("libMemberUID")}</th><td>${member.uid}</td></tr>`;
+    basicRows.push([t('libMemberUID'), member.uid.toString()]);
   }
+
   if (member.gid !== undefined) {
-    html += `<tr><th>${t("libMemberGID")}</th><td>${member.gid}</td></tr>`;
+    basicRows.push([t('libMemberGID'), member.gid.toString()]);
   }
+
   if (member.mode !== undefined) {
-    html += `<tr><th>${t("libMemberMode")}</th><td>0${member.mode.toString(
-      8,
-    )}</td></tr>`;
+    basicRows.push([t('libMemberMode'), `0${member.mode.toString(8)}`]);
   }
 
-  html += "</table>";
+  html += createLibTable(t('libMemberDetails'), basicRows);
 
-  // 如果有数据，显示十六进制预览
+  // 十六进制预览
   if (member.data && member.data.length > 0) {
-    html += `<h3>${t("libMemberDataPreview")}</h3>`;
+    html += `<h3>${t('libMemberDataPreview')}</h3>`;
     html += '<div class="hex-preview">';
 
-    // 只显示前 256 字节
     const previewSize = Math.min(member.size, 256);
     for (let i = 0; i < previewSize; i += 16) {
-      const offset = i.toString(16).toUpperCase().padStart(8, "0");
+      const offset = i.toString(16).toUpperCase().padStart(8, '0');
       html += `<div class="hex-line"><span class="hex-offset">${offset}:</span> `;
 
-      // 十六进制部分
-      let hexPart = "";
-      let asciiPart = "";
+      let hexPart = '';
+      let asciiPart = '';
       for (let j = 0; j < 16; j++) {
         if (i + j < previewSize) {
           const byte = member.data[i + j];
-          hexPart += byte.toString(16).toUpperCase().padStart(2, "0") + " ";
+          hexPart += byte.toString(16).toUpperCase().padStart(2, '0') + ' ';
           asciiPart +=
-            byte >= 32 && byte < 127 ? String.fromCharCode(byte) : ".";
+              byte >= 32 && byte < 127 ? String.fromCharCode(byte) : '.';
         } else {
-          hexPart += "   ";
-          asciiPart += " ";
+          hexPart += '   ';
+          asciiPart += ' ';
         }
       }
 
       html += `<span class="hex-bytes">${hexPart}</span>`;
       html += `<span class="hex-ascii">${asciiPart}</span>`;
-      html += "</div>";
+      html += '</div>';
     }
 
     if (member.size > 256) {
-      html += `<div class="hex-more">... (${t("libMoreBytes", {
-        count: member.size - 256,
-      })})</div>`;
+      html += `<div class="hex-more">... ${
+          t('libMoreBytes', {count: member.size - 256})}</div>`;
     }
 
-    html += "</div>";
+    html += '</div>';
   }
 
-  detailsContent.innerHTML = html;
+  setLibDetails(`${t('libMemberDetails')}: ${escapeHtml(member.name)}`, html);
 }
 
 /**
  * 显示导出符号列表
  */
 function showLibExports(symbols) {
-  const detailsContent = document.getElementById("peDetails");
   const exportCount = Object.keys(symbols).length;
 
-  let html = `<h2>${t("libExports")} (${exportCount})</h2>`;
-
-  // 添加说明
-  html += `<p style="color: var(--vscode-descriptionForeground); font-size: 12px; margin-bottom: 16px;">${t(
-    "libExportsDescription",
-  )}</p>`;
-
-  // 添加搜索框
-  html += `<div style="margin-bottom: 16px;">`;
-  html += `<input type="text" id="libExportSearch" placeholder="${t(
-    "libSearchPlaceholder",
-  )}" style="width: 100%; padding: 6px 8px; box-sizing: border-box; background: var(--vscode-input-background); color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border); font-family: var(--vscode-font-family); font-size: 13px;" />`;
-  html += `<div id="libExportSearchInfo" style="margin-top: 8px; font-size: 12px; color: var(--vscode-descriptionForeground);"></div>`;
-  html += `</div>`;
-
   // 对符号进行排序
-  const sortedSymbols = Object.entries(symbols).sort((a, b) =>
-    a[0].localeCompare(b[0]),
-  );
+  const sortedSymbols =
+      Object.entries(symbols).sort((a, b) => a[0].localeCompare(b[0]));
 
-  // 创建表格容器
-  html += `<div id="libExportTableContainer">`;
-  html += "<table id='libExportTable'>";
-  html += `<tr><th>${t("libExportName")}</th><th>${t("libExportMember")}</th></tr>`;
-
-  // 限制显示数量，避免太长
+  // 准备数据行
   const maxDisplay = 1000;
-  let displayCount = 0;
+  const symbolRows =
+      sortedSymbols.slice(0, maxDisplay)
+          .map(([
+                 symbolName, memberName
+               ]) => [escapeHtml(symbolName), escapeHtml(memberName)]);
 
-  for (const [symbolName, memberName] of sortedSymbols) {
-    if (displayCount >= maxDisplay) {
-      html += `<tr class="lib-export-row"><td colspan="2"><em>${t(
-        "libMoreExports",
-        {
-          count: sortedSymbols.length - maxDisplay,
-        },
-      )}</em></td></tr>`;
-      break;
-    }
-    html += `<tr class="lib-export-row" data-symbol="${escapeHtml(
-      symbolName.toLowerCase(),
-    )}"><td class="lib-export-name">${escapeHtml(symbolName)}</td><td>${escapeHtml(
-      memberName,
-    )}</td></tr>`;
-    displayCount++;
-  }
+  let html =
+      `<p class="lib-section-description">${t('libExportsDescription')}</p>`;
 
-  html += "</table>";
-  html += "</div>";
+  html += createLibListTable(
+      '',  // 标题在setLibDetails中设置
+      [t('libExportName'), t('libExportMember')], symbolRows,
+      {searchable: true, searchId: 'libExportSearch', maxDisplay: maxDisplay});
 
-  detailsContent.innerHTML = html;
+  setLibDetails(`${t('libExports')} (${exportCount})`, html);
 
-  // 添加搜索事件监听器
-  const searchInput = document.getElementById("libExportSearch");
-  const searchInfo = document.getElementById("libExportSearchInfo");
-  const rows = document.querySelectorAll(".lib-export-row");
+  // 添加搜索功能
+  setupLibExportSearch(sortedSymbols.length, maxDisplay);
+}
 
-  if (searchInput) {
-    searchInput.addEventListener("input", function () {
-      const searchTerm = this.value.toLowerCase();
-      let visibleCount = 0;
+/**
+ * 设置导出符号搜索功能
+ */
+function setupLibExportSearch(totalCount, maxDisplay) {
+  const searchInput = document.getElementById('libExportSearch');
+  const searchInfo = document.getElementById('libExportSearchInfo');
+  const rows = document.querySelectorAll('.lib-searchable-row');
 
-      rows.forEach((row) => {
-        const symbolName = row.getAttribute("data-symbol");
-        if (!symbolName) {
-          // 这是"更多导出"提示行，始终隐藏
-          row.style.display = "none";
-          return;
-        }
+  if (!searchInput) return;
 
-        if (symbolName.includes(searchTerm)) {
-          row.style.display = "";
-          visibleCount++;
-        } else {
-          row.style.display = "none";
-        }
-      });
+  searchInput.addEventListener('input', function() {
+    const searchTerm = this.value.toLowerCase();
+    let visibleCount = 0;
 
-      // 更新搜索结果信息
-      if (searchTerm) {
-        searchInfo.textContent = t("libSearchResults", {
-          filtered: visibleCount,
-          total: Math.min(sortedSymbols.length, maxDisplay),
-        });
+    rows.forEach(row => {
+      const symbolName = row.getAttribute('data-search');
+      if (!symbolName) {
+        row.style.display = 'none';
+        return;
+      }
+
+      if (symbolName.includes(searchTerm)) {
+        row.style.display = '';
+        visibleCount++;
       } else {
-        searchInfo.textContent = "";
+        row.style.display = 'none';
       }
     });
-  }
+
+    // 更新搜索结果信息
+    if (searchTerm && searchInfo) {
+      searchInfo.textContent =
+          t('libSearchResults',
+            {filtered: visibleCount, total: Math.min(totalCount, maxDisplay)});
+    } else if (searchInfo) {
+      searchInfo.textContent = '';
+    }
+  });
 }
 
 /**
