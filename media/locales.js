@@ -384,6 +384,8 @@ const locales = {
     libMoreSymbols: "... 还有 {count} 个符号",
     libExportName: "导出符号名",
     libExportMember: "所属成员",
+    libSearchPlaceholder: "搜索符号名称...",
+    libSearchResults: "显示 {filtered} / {total} 个符号",
     libMoreExports: "... 还有 {count} 个导出符号",
 
     // ELF 文件相关
@@ -852,6 +854,8 @@ const locales = {
     libMoreSymbols: "... {count} more symbols",
     libExportName: "Export Name",
     libExportMember: "Member",
+    libSearchPlaceholder: "Search symbol name...",
+    libSearchResults: "Showing {filtered} / {total} symbols",
     libMoreExports: "... {count} more exports",
 
     // ELF File Related

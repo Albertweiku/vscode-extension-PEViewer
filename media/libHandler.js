@@ -379,13 +379,23 @@ function showLibExports(symbols) {
     "libExportsDescription",
   )}</p>`;
 
-  html += "<table>";
-  html += `<tr><th>${t("libExportName")}</th><th>${t("libExportMember")}</th></tr>`;
+  // 添加搜索框
+  html += `<div style="margin-bottom: 16px;">`;
+  html += `<input type="text" id="libExportSearch" placeholder="${t(
+    "libSearchPlaceholder",
+  )}" style="width: 100%; padding: 6px 8px; box-sizing: border-box; background: var(--vscode-input-background); color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border); font-family: var(--vscode-font-family); font-size: 13px;" />`;
+  html += `<div id="libExportSearchInfo" style="margin-top: 8px; font-size: 12px; color: var(--vscode-descriptionForeground);"></div>`;
+  html += `</div>`;
 
   // 对符号进行排序
   const sortedSymbols = Object.entries(symbols).sort((a, b) =>
     a[0].localeCompare(b[0]),
   );
+
+  // 创建表格容器
+  html += `<div id="libExportTableContainer">`;
+  html += "<table id='libExportTable'>";
+  html += `<tr><th>${t("libExportName")}</th><th>${t("libExportMember")}</th></tr>`;
 
   // 限制显示数量，避免太长
   const maxDisplay = 1000;
@@ -393,20 +403,64 @@ function showLibExports(symbols) {
 
   for (const [symbolName, memberName] of sortedSymbols) {
     if (displayCount >= maxDisplay) {
-      html += `<tr><td colspan="2"><em>${t("libMoreExports", {
-        count: sortedSymbols.length - maxDisplay,
-      })}</em></td></tr>`;
+      html += `<tr class="lib-export-row"><td colspan="2"><em>${t(
+        "libMoreExports",
+        {
+          count: sortedSymbols.length - maxDisplay,
+        },
+      )}</em></td></tr>`;
       break;
     }
-    html += `<tr><td class="lib-export-name">${escapeHtml(symbolName)}</td><td>${escapeHtml(
+    html += `<tr class="lib-export-row" data-symbol="${escapeHtml(
+      symbolName.toLowerCase(),
+    )}"><td class="lib-export-name">${escapeHtml(symbolName)}</td><td>${escapeHtml(
       memberName,
     )}</td></tr>`;
     displayCount++;
   }
 
   html += "</table>";
+  html += "</div>";
 
   detailsContent.innerHTML = html;
+
+  // 添加搜索事件监听器
+  const searchInput = document.getElementById("libExportSearch");
+  const searchInfo = document.getElementById("libExportSearchInfo");
+  const rows = document.querySelectorAll(".lib-export-row");
+
+  if (searchInput) {
+    searchInput.addEventListener("input", function () {
+      const searchTerm = this.value.toLowerCase();
+      let visibleCount = 0;
+
+      rows.forEach((row) => {
+        const symbolName = row.getAttribute("data-symbol");
+        if (!symbolName) {
+          // 这是"更多导出"提示行，始终隐藏
+          row.style.display = "none";
+          return;
+        }
+
+        if (symbolName.includes(searchTerm)) {
+          row.style.display = "";
+          visibleCount++;
+        } else {
+          row.style.display = "none";
+        }
+      });
+
+      // 更新搜索结果信息
+      if (searchTerm) {
+        searchInfo.textContent = t("libSearchResults", {
+          filtered: visibleCount,
+          total: Math.min(sortedSymbols.length, maxDisplay),
+        });
+      } else {
+        searchInfo.textContent = "";
+      }
+    });
+  }
 }
 
 /**
