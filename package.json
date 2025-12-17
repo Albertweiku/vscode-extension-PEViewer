@@ -2,7 +2,7 @@
   "name": "pe-elf-viewer",
   "displayName": "PE/ELF Viewer",
   "description": "Professional PE (Windows executables), ELF (Linux shared objects), and LIB (COFF Archive) file structure viewer and analyzer with symbol decoding support",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "publisher": "Albertweiku",
   "license": "MIT",
   "icon": "media/icon.png",
