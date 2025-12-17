@@ -18,6 +18,8 @@ A professional VS Code extension for viewing and analyzing Windows PE (Portable 
 
 ### Windows PE File Support
 
+- 🚀 **Dumpbin Integration**: Automatically uses Visual Studio's dumpbin tool on Windows for more accurate parsing
+- 📊 **Smart Fallback**: Automatically uses built-in parser when dumpbin is unavailable, ensuring cross-platform compatibility
 - 📦 **Import/Export Tables**: View DLL import functions and export function lists
 - 🎨 **Resource Viewer**: View icons, bitmaps, string tables, version info, and more
 - 🔧 **Function Name Decoding**: Automatically decode MSVC/Itanium/Rust symbol names
@@ -73,23 +75,26 @@ A professional VS Code extension for viewing and analyzing Windows PE (Portable 
 3. Type **"Extensions: Install from VSIX..."**
 4. Select the downloaded `.vsix` file
 
+## Version History
+
+### 2.0.0 (2025-12-17)
+
+#### Major Updates
+
+- 🚀 **Dumpbin Integration**: Prioritizes Visual Studio's dumpbin tool on Windows for more accurate PE file parsing
+- 🔄 **Smart Fallback**: Automatic detection and fallback to built-in parser, ensuring cross-platform compatibility
+- 📁 **Project Restructuring**: Modular architecture with separate PE/ELF/LIB parser management
+- 🔍 **COFF/LIB Enhancements**: Symbol search, export symbol display, and parsing fixes
+
+### 1.2.0 (2025-12-16)
+
 #### New Features
 
-- ✨ **Complete ELF File Support**: Full parsing for Linux .so shared libraries
-- 📊 **Multi-architecture**: x86, x86-64, ARM, AArch64, RISC-V, and more
-- 📚 **Smart Dependency Parsing**: DT_NEEDED library name resolution
-- 🔗 **Symbol Table Parsing**: Export/import symbols with address, size, type info
-- 🔧 **Function Name Demangling**: MSVC/Itanium/Rust symbol auto-decoding
-- 🔍 **Search Functionality**: Quick search in import/export tables
-- 📄 **Pagination**: Browse large function lists (100 items per page)
+- 📦 **LIB/COFF File Support**: Complete .lib static library file parsing
+- 🔍 **ELF Dependency Info**: Display associated dependency library for each imported function
+- 📋 **ELF Header Optimization**: Complete display of file header, program header, and section header structures
 
-#### Technical Improvements
-
-- ⚡ Enhanced direct ELF symbol parsing
-- 🔄 Multi-level fallback parsing strategies
-- 🛡️ Robust error handling
-
-### 0.0.1 - Initial Release
+### 1.0.251206 (2024-12-06)
 
 - ✨ Basic PE file structure viewer
 - 📁 Tree view for file navigation
