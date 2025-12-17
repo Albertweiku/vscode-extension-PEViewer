@@ -241,15 +241,26 @@ export class BinaryViewerProvider implements vscode.CustomEditorProvider<BinaryD
   private getHtmlForWebview(webview: vscode.Webview): string {
     // Local path to script and css for the webview
     const peViewerUri = webview.asWebviewUri(
-      vscode.Uri.joinPath(this._context.extensionUri, "media", "peViewer.js"),
+      vscode.Uri.joinPath(
+        this._context.extensionUri,
+        "media",
+        "shared",
+        "peViewer.js",
+      ),
     );
     const localesUri = webview.asWebviewUri(
-      vscode.Uri.joinPath(this._context.extensionUri, "media", "locales.js"),
+      vscode.Uri.joinPath(
+        this._context.extensionUri,
+        "media",
+        "shared",
+        "locales.js",
+      ),
     );
     const machineTypesUri = webview.asWebviewUri(
       vscode.Uri.joinPath(
         this._context.extensionUri,
         "media",
+        "shared",
         "machineTypes.js",
       ),
     );
@@ -257,45 +268,91 @@ export class BinaryViewerProvider implements vscode.CustomEditorProvider<BinaryD
       vscode.Uri.joinPath(
         this._context.extensionUri,
         "media",
+        "pe",
         "resourceHandler.js",
       ),
     );
     const peHandlerUri = webview.asWebviewUri(
-      vscode.Uri.joinPath(this._context.extensionUri, "media", "peHandler.js"),
+      vscode.Uri.joinPath(
+        this._context.extensionUri,
+        "media",
+        "pe",
+        "peHandler.js",
+      ),
     );
     const elfHandlerUri = webview.asWebviewUri(
-      vscode.Uri.joinPath(this._context.extensionUri, "media", "elfHandler.js"),
+      vscode.Uri.joinPath(
+        this._context.extensionUri,
+        "media",
+        "elf",
+        "elfHandler.js",
+      ),
     );
     const libHandlerUri = webview.asWebviewUri(
-      vscode.Uri.joinPath(this._context.extensionUri, "media", "libHandler.js"),
+      vscode.Uri.joinPath(
+        this._context.extensionUri,
+        "media",
+        "lib",
+        "libHandler.js",
+      ),
     );
 
     const styleResetUri = webview.asWebviewUri(
-      vscode.Uri.joinPath(this._context.extensionUri, "media", "reset.css"),
+      vscode.Uri.joinPath(
+        this._context.extensionUri,
+        "media",
+        "shared",
+        "reset.css",
+      ),
     );
 
     const styleVSCodeUri = webview.asWebviewUri(
-      vscode.Uri.joinPath(this._context.extensionUri, "media", "vscode.css"),
+      vscode.Uri.joinPath(
+        this._context.extensionUri,
+        "media",
+        "shared",
+        "vscode.css",
+      ),
     );
 
     const styleCommonUri = webview.asWebviewUri(
-      vscode.Uri.joinPath(this._context.extensionUri, "media", "common.css"),
+      vscode.Uri.joinPath(
+        this._context.extensionUri,
+        "media",
+        "shared",
+        "common.css",
+      ),
     );
 
     const stylePEUri = webview.asWebviewUri(
-      vscode.Uri.joinPath(this._context.extensionUri, "media", "pe.css"),
+      vscode.Uri.joinPath(this._context.extensionUri, "media", "pe", "pe.css"),
     );
 
     const styleELFUri = webview.asWebviewUri(
-      vscode.Uri.joinPath(this._context.extensionUri, "media", "elf.css"),
+      vscode.Uri.joinPath(
+        this._context.extensionUri,
+        "media",
+        "elf",
+        "elf.css",
+      ),
     );
 
     const styleLIBUri = webview.asWebviewUri(
-      vscode.Uri.joinPath(this._context.extensionUri, "media", "lib.css"),
+      vscode.Uri.joinPath(
+        this._context.extensionUri,
+        "media",
+        "lib",
+        "lib.css",
+      ),
     );
 
     const styleMainUri = webview.asWebviewUri(
-      vscode.Uri.joinPath(this._context.extensionUri, "media", "peViewer.css"),
+      vscode.Uri.joinPath(
+        this._context.extensionUri,
+        "media",
+        "shared",
+        "peViewer.css",
+      ),
     );
 
     // Use a nonce to whitelist which scripts can be run
@@ -303,8 +360,12 @@ export class BinaryViewerProvider implements vscode.CustomEditorProvider<BinaryD
 
     // Read HTML template
     const htmlContent = fs.readFileSync(
-      vscode.Uri.joinPath(this._context.extensionUri, "media", "peViewer.html")
-        .fsPath,
+      vscode.Uri.joinPath(
+        this._context.extensionUri,
+        "media",
+        "shared",
+        "peViewer.html",
+      ).fsPath,
       "utf8",
     );
 
