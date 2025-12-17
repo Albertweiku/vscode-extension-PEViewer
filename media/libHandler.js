@@ -11,17 +11,17 @@
  */
 function createLibTable(title, rows) {
   let html = `<h3>${title}</h3>`;
-  html += '<table>';
+  html += "<table>";
 
   rows.forEach(([label, value, description]) => {
     html += `<tr><th>${label}</th><td>${value}`;
     if (description) {
       html += ` <span class="lib-description">${description}</span>`;
     }
-    html += '</td></tr>';
+    html += "</td></tr>";
   });
 
-  html += '</table>';
+  html += "</table>";
   return html;
 }
 
@@ -34,55 +34,58 @@ function createLibTable(title, rows) {
  * @returns {string}
  */
 function createLibListTable(title, headers, rows, options = {}) {
-  const {searchable = false, searchId = '', maxDisplay = 1000} = options;
+  const { searchable = false, searchId = "", maxDisplay = 1000 } = options;
 
   let html = `<h3>${title}</h3>`;
 
   // 如果需要搜索框
   if (searchable) {
     html += `<div class="lib-search-container">`;
-    html += `<input type="text" id="${searchId}" placeholder="${
-        t('libSearchPlaceholder')}" class="lib-search-input" />`;
+    html += `<input type="text" id="${searchId}" placeholder="${t(
+      "libSearchPlaceholder",
+    )}" class="lib-search-input" />`;
     html += `<div id="${searchId}Info" class="lib-search-info"></div>`;
     html += `</div>`;
   }
 
-  html += '<table>';
+  html += "<table>";
 
   // 表头
-  html += '<tr>';
-  headers.forEach(header => {
+  html += "<tr>";
+  headers.forEach((header) => {
     html += `<th>${header}</th>`;
   });
-  html += '</tr>';
+  html += "</tr>";
 
   // 数据行
   let displayCount = 0;
-  rows.forEach(row => {
+  rows.forEach((row) => {
     if (displayCount >= maxDisplay) {
       return;
     }
 
-    const rowClass = searchable ? 'lib-searchable-row' : '';
-    const dataAttr = searchable && row.length > 0 ?
-        `data-search="${escapeHtml(row[0].toLowerCase())}"` :
-        '';
+    const rowClass = searchable ? "lib-searchable-row" : "";
+    const dataAttr =
+      searchable && row.length > 0
+        ? `data-search="${escapeHtml(row[0].toLowerCase())}"`
+        : "";
 
     html += `<tr class="${rowClass}" ${dataAttr}>`;
-    row.forEach(cell => {
+    row.forEach((cell) => {
       html += `<td>${cell}</td>`;
     });
-    html += '</tr>';
+    html += "</tr>";
     displayCount++;
   });
 
   // 如果有更多数据未显示
   if (rows.length > maxDisplay) {
-    html += `<tr><td colspan="${headers.length}"><em>... ${
-        t('andMoreItems', {count: rows.length - maxDisplay})}</em></td></tr>`;
+    html += `<tr><td colspan="${headers.length}"><em>... ${t("andMoreItems", {
+      count: rows.length - maxDisplay,
+    })}</em></td></tr>`;
   }
 
-  html += '</table>';
+  html += "</table>";
   return html;
 }
 
@@ -92,11 +95,11 @@ function createLibListTable(title, headers, rows, options = {}) {
  * @param {string} content - HTML内容
  */
 function setLibDetails(title, content) {
-  const detailsContent = document.getElementById('peDetails');
-  const detailsTitle = document.getElementById('detailsTitle');
+  const detailsContent = document.getElementById("peDetails");
+  const detailsTitle = document.getElementById("detailsTitle");
 
   if (!detailsContent) {
-    console.error('peDetails element not found');
+    console.error("peDetails element not found");
     return;
   }
 
@@ -263,28 +266,28 @@ function buildLibTree(parsedData) {
  */
 function showLibOverview(libData) {
   const totalMembers = libData.members ? libData.members.length : 0;
-  const normalMembers = libData.members ?
-      libData.members.filter(m => m.name !== '/' && m.name !== '//').length :
-      0;
+  const normalMembers = libData.members
+    ? libData.members.filter((m) => m.name !== "/" && m.name !== "//").length
+    : 0;
   const exportCount = libData.symbols ? Object.keys(libData.symbols).length : 0;
 
   let totalSize = 0;
   if (libData.members) {
-    libData.members.forEach(member => {
+    libData.members.forEach((member) => {
       totalSize += member.size || 0;
     });
   }
 
-  let html = '';
+  let html = "";
 
   // 基本信息
   const basicInfoRows = [
-    [t('libMemberCount'), totalMembers.toString()],
-    [t('libNormalMemberCount'), normalMembers.toString()],
-    [t('libExportCount'), exportCount.toString()],
-    [t('libTotalSize'), `${totalSize} ${t('bytes')}`, formatSize(totalSize)]
+    [t("libMemberCount"), totalMembers.toString()],
+    [t("libNormalMemberCount"), normalMembers.toString()],
+    [t("libExportCount"), exportCount.toString()],
+    [t("libTotalSize"), `${totalSize} ${t("bytes")}`, formatSize(totalSize)],
   ];
-  html += createLibTable(t('libBasicInfo'), basicInfoRows);
+  html += createLibTable(t("libBasicInfo"), basicInfoRows);
 
   // 成员文件列表（前10个）
   if (normalMembers > 0) {
@@ -292,111 +295,117 @@ function showLibOverview(libData) {
     let count = 0;
 
     for (const member of libData.members) {
-      if (member.name === '/' || member.name === '//') continue;
+      if (member.name === "/" || member.name === "//") continue;
       if (count >= 10) break;
 
-      memberRows.push(
-          [escapeHtml(member.name), `${member.size} ${t('bytes')}`]);
+      memberRows.push([
+        escapeHtml(member.name),
+        `${member.size} ${t("bytes")}`,
+      ]);
       count++;
     }
 
     html += createLibListTable(
-        t('libTopMembers'), [t('libMemberName'), t('libMemberSize')],
-        memberRows);
+      t("libTopMembers"),
+      [t("libMemberName"), t("libMemberSize")],
+      memberRows,
+    );
 
     if (normalMembers > 10) {
-      html += `<p class="lib-hint-text">... ${
-          t('andMoreMembers', {count: normalMembers - 10})}</p>`;
+      html += `<p class="lib-hint-text">... ${t("andMoreMembers", {
+        count: normalMembers - 10,
+      })}</p>`;
     }
   }
 
   // 导出符号统计
   if (exportCount > 0) {
-    const exportStatsRows = [
-      [t('libExportCount'), exportCount.toString()],
-    ];
-    html += createLibTable(t('libExportStats'), exportStatsRows);
-    html += `<p class="lib-hint-text"><em>${
-        t('libClickExportsForDetails')}</em></p>`;
+    const exportStatsRows = [[t("libExportCount"), exportCount.toString()]];
+    html += createLibTable(t("libExportStats"), exportStatsRows);
+    html += `<p class="lib-hint-text"><em>${t(
+      "libClickExportsForDetails",
+    )}</em></p>`;
   }
 
-  setLibDetails(t('libOverview'), html);
+  setLibDetails(t("libOverview"), html);
 }
 
 /**
  * 显示成员详细信息
  */
 function showLibMember(member, index) {
-  let html = '';
+  let html = "";
 
   // 基本信息
   const basicRows = [
-    [t('libMemberName'), escapeHtml(member.name)],
-    [t('libMemberIndex'), index.toString()],
+    [t("libMemberName"), escapeHtml(member.name)],
+    [t("libMemberIndex"), index.toString()],
     [
-      t('libMemberSize'), `${member.size} ${t('bytes')}`,
-      formatSize(member.size)
+      t("libMemberSize"),
+      `${member.size} ${t("bytes")}`,
+      formatSize(member.size),
     ],
-    [t('libMemberOffset'), `0x${member.offset.toString(16).toUpperCase()}`]
+    [t("libMemberOffset"), `0x${member.offset.toString(16).toUpperCase()}`],
   ];
 
   if (member.timestamp) {
     const date = new Date(member.timestamp * 1000);
-    basicRows.push([t('libMemberTimestamp'), date.toLocaleString()]);
+    basicRows.push([t("libMemberTimestamp"), date.toLocaleString()]);
   }
 
   if (member.uid !== undefined) {
-    basicRows.push([t('libMemberUID'), member.uid.toString()]);
+    basicRows.push([t("libMemberUID"), member.uid.toString()]);
   }
 
   if (member.gid !== undefined) {
-    basicRows.push([t('libMemberGID'), member.gid.toString()]);
+    basicRows.push([t("libMemberGID"), member.gid.toString()]);
   }
 
   if (member.mode !== undefined) {
-    basicRows.push([t('libMemberMode'), `0${member.mode.toString(8)}`]);
+    basicRows.push([t("libMemberMode"), `0${member.mode.toString(8)}`]);
   }
 
-  html += createLibTable(t('libMemberDetails'), basicRows);
+  html += createLibTable(t("libMemberDetails"), basicRows);
 
   // 十六进制预览
   if (member.data && member.data.length > 0) {
-    html += `<h3>${t('libMemberDataPreview')}</h3>`;
+    html += `<h3>${t("libMemberDataPreview")}</h3>`;
     html += '<div class="hex-preview">';
 
     const previewSize = Math.min(member.size, 256);
     for (let i = 0; i < previewSize; i += 16) {
-      const offset = i.toString(16).toUpperCase().padStart(8, '0');
+      const offset = i.toString(16).toUpperCase().padStart(8, "0");
       html += `<div class="hex-line"><span class="hex-offset">${offset}:</span> `;
 
-      let hexPart = '';
-      let asciiPart = '';
+      let hexPart = "";
+      let asciiPart = "";
       for (let j = 0; j < 16; j++) {
         if (i + j < previewSize) {
           const byte = member.data[i + j];
-          hexPart += byte.toString(16).toUpperCase().padStart(2, '0') + ' ';
+          hexPart += byte.toString(16).toUpperCase().padStart(2, "0") + " ";
           asciiPart +=
-              byte >= 32 && byte < 127 ? String.fromCharCode(byte) : '.';
+            byte >= 32 && byte < 127 ? String.fromCharCode(byte) : ".";
         } else {
-          hexPart += '   ';
-          asciiPart += ' ';
+          hexPart += "   ";
+          asciiPart += " ";
         }
       }
 
       html += `<span class="hex-bytes">${hexPart}</span>`;
       html += `<span class="hex-ascii">${asciiPart}</span>`;
-      html += '</div>';
+      html += "</div>";
     }
 
     if (member.size > 256) {
-      html += `<div class="hex-more">... ${
-          t('libMoreBytes', {count: member.size - 256})}</div>`;
+      html += `<div class="hex-more">... ${t("libMoreBytes", {
+        count: member.size - 256,
+      })}</div>`;
     }
 
-    html += '</div>';
+    html += "</div>";
   }
 
-  setLibDetails(`${t('libMemberDetails')}: ${escapeHtml(member.name)}`, html);
+  setLibDetails(`${t("libMemberDetails")}: ${escapeHtml(member.name)}`, html);
 }
 
 /**
@@ -406,26 +415,29 @@ function showLibExports(symbols) {
   const exportCount = Object.keys(symbols).length;
 
   // 对符号进行排序
-  const sortedSymbols =
-      Object.entries(symbols).sort((a, b) => a[0].localeCompare(b[0]));
+  const sortedSymbols = Object.entries(symbols).sort((a, b) =>
+    a[0].localeCompare(b[0]),
+  );
 
   // 准备数据行
   const maxDisplay = 1000;
-  const symbolRows =
-      sortedSymbols.slice(0, maxDisplay)
-          .map(([
-                 symbolName, memberName
-               ]) => [escapeHtml(symbolName), escapeHtml(memberName)]);
+  const symbolRows = sortedSymbols
+    .slice(0, maxDisplay)
+    .map(([symbolName, memberName]) => [
+      escapeHtml(symbolName),
+      escapeHtml(memberName),
+    ]);
 
-  let html =
-      `<p class="lib-section-description">${t('libExportsDescription')}</p>`;
+  let html = `<p class="lib-section-description">${t("libExportsDescription")}</p>`;
 
   html += createLibListTable(
-      '',  // 标题在setLibDetails中设置
-      [t('libExportName'), t('libExportMember')], symbolRows,
-      {searchable: true, searchId: 'libExportSearch', maxDisplay: maxDisplay});
+    "", // 标题在setLibDetails中设置
+    [t("libExportName"), t("libExportMember")],
+    symbolRows,
+    { searchable: true, searchId: "libExportSearch", maxDisplay: maxDisplay },
+  );
 
-  setLibDetails(`${t('libExports')} (${exportCount})`, html);
+  setLibDetails(`${t("libExports")} (${exportCount})`, html);
 
   // 添加搜索功能
   setupLibExportSearch(sortedSymbols.length, maxDisplay);
@@ -435,38 +447,39 @@ function showLibExports(symbols) {
  * 设置导出符号搜索功能
  */
 function setupLibExportSearch(totalCount, maxDisplay) {
-  const searchInput = document.getElementById('libExportSearch');
-  const searchInfo = document.getElementById('libExportSearchInfo');
-  const rows = document.querySelectorAll('.lib-searchable-row');
+  const searchInput = document.getElementById("libExportSearch");
+  const searchInfo = document.getElementById("libExportSearchInfo");
+  const rows = document.querySelectorAll(".lib-searchable-row");
 
   if (!searchInput) return;
 
-  searchInput.addEventListener('input', function() {
+  searchInput.addEventListener("input", function () {
     const searchTerm = this.value.toLowerCase();
     let visibleCount = 0;
 
-    rows.forEach(row => {
-      const symbolName = row.getAttribute('data-search');
+    rows.forEach((row) => {
+      const symbolName = row.getAttribute("data-search");
       if (!symbolName) {
-        row.style.display = 'none';
+        row.style.display = "none";
         return;
       }
 
       if (symbolName.includes(searchTerm)) {
-        row.style.display = '';
+        row.style.display = "";
         visibleCount++;
       } else {
-        row.style.display = 'none';
+        row.style.display = "none";
       }
     });
 
     // 更新搜索结果信息
     if (searchTerm && searchInfo) {
-      searchInfo.textContent =
-          t('libSearchResults',
-            {filtered: visibleCount, total: Math.min(totalCount, maxDisplay)});
+      searchInfo.textContent = t("libSearchResults", {
+        filtered: visibleCount,
+        total: Math.min(totalCount, maxDisplay),
+      });
     } else if (searchInfo) {
-      searchInfo.textContent = '';
+      searchInfo.textContent = "";
     }
   });
 }

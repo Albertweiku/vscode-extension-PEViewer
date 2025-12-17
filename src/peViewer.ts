@@ -278,6 +278,22 @@ export class BinaryViewerProvider implements vscode.CustomEditorProvider<BinaryD
       vscode.Uri.joinPath(this._context.extensionUri, "media", "vscode.css"),
     );
 
+    const styleCommonUri = webview.asWebviewUri(
+      vscode.Uri.joinPath(this._context.extensionUri, "media", "common.css"),
+    );
+
+    const stylePEUri = webview.asWebviewUri(
+      vscode.Uri.joinPath(this._context.extensionUri, "media", "pe.css"),
+    );
+
+    const styleELFUri = webview.asWebviewUri(
+      vscode.Uri.joinPath(this._context.extensionUri, "media", "elf.css"),
+    );
+
+    const styleLIBUri = webview.asWebviewUri(
+      vscode.Uri.joinPath(this._context.extensionUri, "media", "lib.css"),
+    );
+
     const styleMainUri = webview.asWebviewUri(
       vscode.Uri.joinPath(this._context.extensionUri, "media", "peViewer.css"),
     );
@@ -298,6 +314,10 @@ export class BinaryViewerProvider implements vscode.CustomEditorProvider<BinaryD
       .replace(/\$\{nonce\}/g, nonce)
       .replace(/\$\{styleResetUri\}/g, styleResetUri.toString())
       .replace(/\$\{styleVSCodeUri\}/g, styleVSCodeUri.toString())
+      .replace(/\$\{styleCommonUri\}/g, styleCommonUri.toString())
+      .replace(/\$\{stylePEUri\}/g, stylePEUri.toString())
+      .replace(/\$\{styleELFUri\}/g, styleELFUri.toString())
+      .replace(/\$\{styleLIBUri\}/g, styleLIBUri.toString())
       .replace(/\$\{styleMainUri\}/g, styleMainUri.toString())
       .replace(/\$\{localesUri\}/g, localesUri.toString())
       .replace(/\$\{machineTypesUri\}/g, machineTypesUri.toString())

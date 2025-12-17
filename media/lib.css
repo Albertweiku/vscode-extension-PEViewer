@@ -1,0 +1,60 @@
+﻿/**
+ * LIB/COFF Archive 文件格式专用样式
+ */
+
+/* LIB 描述文本 */
+.lib-description {
+  color: var(--vscode-descriptionForeground);
+  font-size: 11px;
+}
+
+/* LIB 搜索功能 */
+.lib-search-container {
+  margin-bottom: 12px;
+}
+
+.lib-search-input {
+  width: 100%;
+  padding: 6px 8px;
+  box-sizing: border-box;
+  background: var(--vscode-input-background);
+  color: var(--vscode-input-foreground);
+  border: 1px solid var(--vscode-input-border);
+  font-family: var(--vscode-font-family);
+  font-size: 13px;
+}
+
+.lib-search-input:focus {
+  outline: 1px solid var(--vscode-focusBorder);
+  outline-offset: -1px;
+}
+
+.lib-search-info {
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground);
+}
+
+/* LIB 提示文本 */
+.lib-hint-text {
+  color: var(--vscode-descriptionForeground);
+  font-size: 12px;
+  margin-top: -8px;
+}
+
+.lib-section-description {
+  color: var(--vscode-descriptionForeground);
+  font-size: 12px;
+  margin-bottom: 16px;
+}
+
+/* LIB 可搜索行 */
+.lib-searchable-row {
+  /* 可搜索的行，用于JavaScript过滤 */
+}
+
+/* LIB 导出符号名样式 */
+.lib-export-name {
+  font-family: "Courier New", Consolas, monospace;
+  font-size: 12px;
+}

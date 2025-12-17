@@ -1,0 +1,41 @@
+﻿/**
+ * ELF 文件格式专用样式
+ */
+
+/* ELF 特定样式 */
+.elf-section-header {
+  font-weight: bold;
+  color: var(--vscode-textLink-foreground);
+}
+
+.elf-symbol-table {
+  font-family: "Courier New", Consolas, monospace;
+  font-size: 12px;
+}
+
+/* ELF 搜索功能 */
+.elf-search-container {
+  margin-bottom: 15px;
+}
+
+.elf-search-input {
+  width: 100%;
+  padding: 6px 8px;
+  box-sizing: border-box;
+  background: var(--vscode-input-background);
+  color: var(--vscode-input-foreground);
+  border: 1px solid var(--vscode-input-border);
+  font-family: var(--vscode-font-family);
+  font-size: 13px;
+}
+
+.elf-search-input:focus {
+  outline: 1px solid var(--vscode-focusBorder);
+  outline-offset: -1px;
+}
+
+.elf-search-results {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground);
+}
