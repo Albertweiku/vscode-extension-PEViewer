@@ -144,6 +144,16 @@ class GenericBinaryDocument extends BinaryDocument {
     try {
       const libData = await parseLibArchive(buffer);
       console.log(`LIB parsing successful: ${libData.members.length} members`);
+      console.log("LIB symbols:", libData.symbols);
+      if (libData.symbols) {
+        console.log("Symbol count:", Object.keys(libData.symbols).length);
+        console.log(
+          "First 5 symbols:",
+          Object.keys(libData.symbols).slice(0, 5),
+        );
+      } else {
+        console.log("No symbols found in parsed data");
+      }
       return {
         fileType: "LIB",
         libData: libData,

@@ -15,7 +15,7 @@ export interface LibArchiveMember {
 
 export interface LibArchiveData {
   members: LibArchiveMember[];
-  symbols?: Map<string, string>; // 符号名 -> 成员名
+  symbols?: Record<string, string>; // 符号名 -> 成员名（改为普通对象以便JSON序列化）
 }
 
 const ARCHIVE_MAGIC = "!<arch>\n";
@@ -111,11 +111,18 @@ function parseFirstLinkerMember(data: Buffer): Map<string, number> {
   const symbols = new Map<string, number>();
 
   if (data.length < 4) {
+    console.log("First linker data too small:", data.length);
     return symbols;
   }
 
   // 大端序读取符号数量
   const symbolCount = data.readUInt32BE(0);
+  console.log(
+    "First linker member - symbolCount:",
+    symbolCount,
+    "data.length:",
+    data.length,
+  );
   let offset = 4;
 
   // 读取偏移量数组（大端序）
@@ -124,17 +131,22 @@ function parseFirstLinkerMember(data: Buffer): Map<string, number> {
     offsets.push(data.readUInt32BE(offset));
     offset += 4;
   }
+  console.log("Read offsets:", offsets.length, "offset now:", offset);
 
   // 读取符号名称（null 结尾字符串）
+  let symbolsParsed = 0;
   for (let i = 0; i < symbolCount && offset < data.length; i++) {
     const nullIndex = data.indexOf(0, offset);
     if (nullIndex === -1) {
+      console.log("No null terminator found at offset:", offset);
       break;
     }
     const symbolName = data.toString("ascii", offset, nullIndex);
     symbols.set(symbolName, offsets[i]);
     offset = nullIndex + 1;
+    symbolsParsed++;
   }
+  console.log("Parsed symbols:", symbolsParsed, "out of", symbolCount);
 
   return symbols;
 }
@@ -217,23 +229,20 @@ export async function parseLibArchive(buffer: Buffer): Promise<LibArchiveData> {
     member.data = Array.from(dataBuffer);
 
     // 处理特殊成员
-    if (member.name === "/") {
-      // 第一链接器成员（符号索引）
+    if (member.name === "/" && firstLinkerSymbols === null) {
+      // 第一个 "/" 是第一链接器成员（符号索引）
       firstLinkerSymbols = parseFirstLinkerMember(dataBuffer);
+    } else if (member.name === "/" && firstLinkerSymbols !== null) {
+      // 第二个 "/" 是第二链接器成员（扩展符号索引）
+      secondLinkerSymbols = parseSecondLinkerMember(dataBuffer);
     } else if (member.name === "//") {
-      // 长文件名表
+      // "//" 是长文件名表
       longNames = parseLongNames(dataBuffer);
-    } else if (member.name === "//" || member.name.startsWith("/")) {
-      // 可能是第二链接器成员或长文件名引用
-      if (member.name === "/" && firstLinkerSymbols !== null) {
-        // 第二个 "/" 是第二链接器成员
-        secondLinkerSymbols = parseSecondLinkerMember(dataBuffer);
-      } else if (member.name.match(/^\/\d+$/)) {
-        // 长文件名引用 /数字
-        const index = parseInt(member.name.substring(1), 10);
-        if (longNames && longNames.has(index)) {
-          member.name = longNames.get(index)!;
-        }
+    } else if (member.name.match(/^\/\d+$/)) {
+      // 长文件名引用 /数字
+      const index = parseInt(member.name.substring(1), 10);
+      if (longNames && longNames.has(index)) {
+        member.name = longNames.get(index)!;
       }
     }
 
@@ -266,18 +275,49 @@ export async function parseLibArchive(buffer: Buffer): Promise<LibArchiveData> {
 
     // 如果没有第二链接器成员，使用第一链接器成员
     if (symbolMap.size === 0 && firstLinkerSymbols) {
+      console.log(
+        "Using first linker member, symbols:",
+        firstLinkerSymbols.size,
+      );
+      const symbolEntries = Array.from(firstLinkerSymbols.entries()).slice(
+        0,
+        5,
+      );
+      console.log("First 5 symbol offsets:", JSON.stringify(symbolEntries));
+      const memberOffsets = members.slice(0, 5).map((m) => ({
+        name: m.name,
+        offset: m.offset,
+        headerOffset: m.offset - MEMBER_HEADER_SIZE,
+      }));
+      console.log("Member offsets:", JSON.stringify(memberOffsets));
+
       // 第一链接器成员使用偏移量而非索引，需要查找对应成员
+      // 注意：偏移量指向成员头部的起始位置，而不是数据起始位置
       for (const [symbol, memberOffset] of firstLinkerSymbols) {
-        const member = members.find((m) => m.offset === memberOffset);
+        // 查找头部偏移量匹配的成员（member.offset
+        // 是数据偏移，需要减去头部大小）
+        const member = members.find(
+          (m) => m.offset - MEMBER_HEADER_SIZE === memberOffset,
+        );
         if (member) {
           symbolMap.set(symbol, member.name);
         }
       }
+      console.log("Matched symbols from first linker:", symbolMap.size);
     }
   }
 
+  const symbolsObject = symbolMap ? Object.fromEntries(symbolMap) : undefined;
+  console.log("parseLibArchive returning:", {
+    memberCount: members.length,
+    symbolMapSize: symbolMap?.size || 0,
+    symbolsObjectKeys: symbolsObject ? Object.keys(symbolsObject).length : 0,
+    hasFirstLinker: !!firstLinkerSymbols,
+    hasSecondLinker: !!secondLinkerSymbols,
+  });
+
   return {
     members,
-    symbols: symbolMap || undefined,
+    symbols: symbolsObject,
   };
 }

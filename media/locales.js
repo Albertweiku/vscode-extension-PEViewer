@@ -350,12 +350,22 @@ const locales = {
 
     // LIB 文件相关
     libViewerTitle: "LIB Viewer - COFF Archive 文件结构",
+    libOverview: "LIB 文件总览",
+    libBasicInfo: "基本信息",
+    libTopMembers: "主要成员文件",
+    libExportStats: "导出符号统计",
+    libClickExportsForDetails: '点击左侧树中的"导出符号"查看详情',
+    libExportsDescription:
+      "这些是此静态库中导出的所有符号，可供其他程序链接使用。",
+    andMoreMembers: "还有 {count} 个成员",
     libHeader: "LIB 文件头",
     libMembers: "成员文件",
     libSymbols: "符号索引",
+    libExports: "导出符号",
     libMemberCount: "成员总数",
     libNormalMemberCount: "普通成员数",
     libSymbolCount: "符号总数",
+    libExportCount: "导出符号数",
     libTotalSize: "总大小",
     bytes: "字节",
     libMemberDetails: "成员详情",
@@ -372,6 +382,9 @@ const locales = {
     libSymbolName: "符号名",
     libSymbolMember: "所属成员",
     libMoreSymbols: "... 还有 {count} 个符号",
+    libExportName: "导出符号名",
+    libExportMember: "所属成员",
+    libMoreExports: "... 还有 {count} 个导出符号",
 
     // ELF 文件相关
     elfViewerTitle: "ELF Viewer - ELF文件结构",
@@ -804,12 +817,23 @@ const locales = {
 
     // LIB File Related
     libViewerTitle: "LIB Viewer - COFF Archive File Structure",
+    libOverview: "LIB File Overview",
+    libBasicInfo: "Basic Information",
+    libTopMembers: "Top Member Files",
+    libExportStats: "Export Statistics",
+    libClickExportsForDetails:
+      'Click "Exported Symbols" in the left tree for details',
+    libExportsDescription:
+      "These are all symbols exported by this static library, available for linking by other programs.",
+    andMoreMembers: "and {count} more members",
     libHeader: "LIB File Header",
     libMembers: "Member Files",
     libSymbols: "Symbol Index",
+    libExports: "Exported Symbols",
     libMemberCount: "Total Members",
     libNormalMemberCount: "Normal Members",
     libSymbolCount: "Total Symbols",
+    libExportCount: "Exported Symbols",
     libTotalSize: "Total Size",
     bytes: "bytes",
     libMemberDetails: "Member Details",
@@ -826,6 +850,9 @@ const locales = {
     libSymbolName: "Symbol Name",
     libSymbolMember: "Member",
     libMoreSymbols: "... {count} more symbols",
+    libExportName: "Export Name",
+    libExportMember: "Member",
+    libMoreExports: "... {count} more exports",
 
     // ELF File Related
     elfViewerTitle: "ELF Viewer - ELF File Structure",

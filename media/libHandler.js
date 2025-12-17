@@ -103,17 +103,32 @@ function buildLibTree(parsedData) {
   libTreeStructure.appendChild(libHeader);
   libTreeStructure.appendChild(libMembers);
 
-  // 创建符号列表节点（如果有）
-  if (libData.symbols && Object.keys(libData.symbols).length > 0) {
-    const libSymbols = document.createElement("div");
-    libSymbols.className = "pe-tree-item pe-tree-top-level";
-    libSymbols.setAttribute("data-item", "lib_symbols");
-    const symbolCount = Object.keys(libData.symbols).length;
-    libSymbols.innerHTML = `📊 <span>${t(
-      "libSymbols",
-    )}</span> <span class="pe-tree-count">(${symbolCount})</span>`;
+  // 创建导出符号列表节点（如果有）
+  console.log(
+    "Checking symbols:",
+    libData.symbols,
+    "Type:",
+    typeof libData.symbols,
+  );
+  if (libData.symbols) {
+    console.log("Symbols keys:", Object.keys(libData.symbols));
+    console.log("Symbols length:", Object.keys(libData.symbols).length);
+  }
 
-    libTreeStructure.appendChild(libSymbols);
+  if (libData.symbols && Object.keys(libData.symbols).length > 0) {
+    const libExports = document.createElement("div");
+    libExports.className = "pe-tree-item pe-tree-top-level";
+    libExports.setAttribute("data-item", "lib_exports");
+    const exportCount = Object.keys(libData.symbols).length;
+    libExports.innerHTML = `📤 <span>${t(
+      "libExports",
+    )}</span> <span class="pe-tree-count">(${exportCount})</span>`;
+    libExports.style.display = "";
+
+    libTreeStructure.appendChild(libExports);
+    console.log("Export node added with count:", exportCount);
+  } else {
+    console.log("No symbols found or symbols is empty");
   }
 
   // 添加点击事件（使用事件委托）
@@ -123,9 +138,9 @@ function buildLibTree(parsedData) {
 
     const itemId = target.getAttribute("data-item");
     if (itemId === "lib_header") {
-      showLibHeader(libData);
-    } else if (itemId === "lib_symbols") {
-      showLibSymbols(libData.symbols);
+      showLibOverview(libData);
+    } else if (itemId === "lib_exports") {
+      showLibExports(libData.symbols);
     } else if (itemId && itemId.startsWith("lib_member_")) {
       const index = parseInt(itemId.replace("lib_member_", ""));
       if (index < normalMembers.length) {
@@ -134,8 +149,95 @@ function buildLibTree(parsedData) {
     }
   });
 
-  // 默认显示 LIB 头部信息
-  showLibHeader(libData);
+  // 默认显示 LIB 文件总览
+  showLibOverview(libData);
+}
+
+/**
+ * 显示 LIB 文件总览
+ */
+function showLibOverview(libData) {
+  console.log("showLibOverview called", libData);
+  const detailsContent = document.getElementById("peDetails");
+  if (!detailsContent) {
+    console.error("peDetails element not found");
+    return;
+  }
+
+  let html = `<h2>${t("libOverview")}</h2>`;
+
+  // 基本信息表格
+  html += "<h3>" + t("libBasicInfo") + "</h3>";
+  html += "<table>";
+
+  // 成员总数
+  const totalMembers = libData.members ? libData.members.length : 0;
+  html += `<tr><th>${t("libMemberCount")}</th><td>${totalMembers}</td></tr>`;
+
+  // 普通成员数量
+  let normalMembers = 0;
+  if (libData.members) {
+    normalMembers = libData.members.filter(
+      (m) => m.name !== "/" && m.name !== "//",
+    ).length;
+  }
+  html += `<tr><th>${t("libNormalMemberCount")}</th><td>${normalMembers}</td></tr>`;
+
+  // 导出符号数量
+  const exportCount = libData.symbols ? Object.keys(libData.symbols).length : 0;
+  html += `<tr><th>${t("libExportCount")}</th><td>${exportCount}</td></tr>`;
+
+  // 总大小
+  let totalSize = 0;
+  if (libData.members) {
+    libData.members.forEach((member) => {
+      totalSize += member.size || 0;
+    });
+  }
+  html += `<tr><th>${t("libTotalSize")}</th><td>${totalSize} ${t("bytes")} (${formatSize(
+    totalSize,
+  )})</td></tr>`;
+
+  html += "</table>";
+
+  // 成员文件列表（显示前10个）
+  if (normalMembers > 0) {
+    html += "<h3>" + t("libTopMembers") + "</h3>";
+    html += "<table>";
+    html += `<tr><th>${t("libMemberName")}</th><th>${t("libMemberSize")}</th></tr>`;
+
+    let count = 0;
+    for (const member of libData.members) {
+      if (member.name === "/" || member.name === "//") continue;
+      if (count >= 10) break;
+
+      html += `<tr><td>${escapeHtml(member.name)}</td><td>${member.size} ${t(
+        "bytes",
+      )}</td></tr>`;
+      count++;
+    }
+
+    if (normalMembers > 10) {
+      html += `<tr><td colspan="2"><em>... ${t("andMoreMembers", {
+        count: normalMembers - 10,
+      })}</em></td></tr>`;
+    }
+    html += "</table>";
+  }
+
+  // 导出符号统计
+  if (exportCount > 0) {
+    html += "<h3>" + t("libExportStats") + "</h3>";
+    html += "<table>";
+    html += `<tr><th>${t("libExportCount")}</th><td>${exportCount}</td></tr>`;
+    html += `<tr><td colspan="2"><em>${t(
+      "libClickExportsForDetails",
+    )}</em></td></tr>`;
+    html += "</table>";
+  }
+
+  console.log("Setting innerHTML", html.substring(0, 200));
+  detailsContent.innerHTML = html;
 }
 
 /**
@@ -159,9 +261,9 @@ function showLibHeader(libData) {
   }
   html += `<tr><th>${t("libNormalMemberCount")}</th><td>${normalMembers}</td></tr>`;
 
-  // 符号数量
+  // 导出符号数量
   if (libData.symbols) {
-    html += `<tr><th>${t("libSymbolCount")}</th><td>${
+    html += `<tr><th>${t("libExportCount")}</th><td>${
       Object.keys(libData.symbols).length
     }</td></tr>`;
   }
@@ -264,14 +366,21 @@ function showLibMember(member, index) {
 }
 
 /**
- * 显示符号索引表
+ * 显示导出符号列表
  */
-function showLibSymbols(symbols) {
+function showLibExports(symbols) {
   const detailsContent = document.getElementById("peDetails");
-  let html = `<h2>${t("libSymbols")} (${Object.keys(symbols).length})</h2>`;
+  const exportCount = Object.keys(symbols).length;
+
+  let html = `<h2>${t("libExports")} (${exportCount})</h2>`;
+
+  // 添加说明
+  html += `<p style="color: var(--vscode-descriptionForeground); font-size: 12px; margin-bottom: 16px;">${t(
+    "libExportsDescription",
+  )}</p>`;
 
   html += "<table>";
-  html += `<tr><th>${t("libSymbolName")}</th><th>${t("libSymbolMember")}</th></tr>`;
+  html += `<tr><th>${t("libExportName")}</th><th>${t("libExportMember")}</th></tr>`;
 
   // 对符号进行排序
   const sortedSymbols = Object.entries(symbols).sort((a, b) =>
@@ -284,12 +393,12 @@ function showLibSymbols(symbols) {
 
   for (const [symbolName, memberName] of sortedSymbols) {
     if (displayCount >= maxDisplay) {
-      html += `<tr><td colspan="2"><em>${t("libMoreSymbols", {
+      html += `<tr><td colspan="2"><em>${t("libMoreExports", {
         count: sortedSymbols.length - maxDisplay,
       })}</em></td></tr>`;
       break;
     }
-    html += `<tr><td>${escapeHtml(symbolName)}</td><td>${escapeHtml(
+    html += `<tr><td class="lib-export-name">${escapeHtml(symbolName)}</td><td>${escapeHtml(
       memberName,
     )}</td></tr>`;
     displayCount++;
@@ -298,6 +407,17 @@ function showLibSymbols(symbols) {
   html += "</table>";
 
   detailsContent.innerHTML = html;
+}
+
+/**
+ * 格式化文件大小
+ */
+function formatSize(bytes) {
+  if (bytes < 1024) return bytes + " B";
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(2) + " KB";
+  if (bytes < 1024 * 1024 * 1024)
+    return (bytes / (1024 * 1024)).toFixed(2) + " MB";
+  return (bytes / (1024 * 1024 * 1024)).toFixed(2) + " GB";
 }
 
 /**
