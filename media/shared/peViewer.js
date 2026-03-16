@@ -1,4 +1,4 @@
-﻿// @ts-check
+// @ts-check
 
 // 此脚本在 webview 本身中运行
 (function () {
@@ -307,6 +307,12 @@
         }
         updateUILanguage();
         buildTree();
+        // 数据已就绪并完成渲染，隐藏“正在解析中”遮罩
+        const loadingOverlay = document.getElementById("peViewerLoadingOverlay");
+        if (loadingOverlay) {
+          loadingOverlay.classList.add("pe-viewer-loading-hidden");
+          loadingOverlay.setAttribute("aria-hidden", "true");
+        }
         return;
       }
       case "update": {
