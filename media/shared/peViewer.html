@@ -23,6 +23,13 @@
     <title>PEViewer - PE File Viewer</title>
   </head>
   <body>
+    <!-- 未收到 init 前显示的“正在解析中”遮罩，收到数据并渲染后由 JS 隐藏 -->
+    <div class="pe-viewer-loading-overlay" id="peViewerLoadingOverlay" aria-hidden="false">
+      <div class="pe-viewer-loading-content">
+        <div class="pe-viewer-loading-spinner"></div>
+        <p class="pe-viewer-loading-text" id="peViewerLoadingText">正在解析中，请稍候…</p>
+      </div>
+    </div>
     <div class="pe-editor-container">
       <div class="pe-sidebar">
         <div class="pe-tree-header" id="peTreeHeader">

@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 通用样式 - 适用于所有文件格式查看器
  */
 
@@ -289,4 +289,51 @@ table.pe-details-table tbody tr.highlight-current td {
   color: var(--vscode-descriptionForeground);
   font-style: italic;
   margin-top: 5px;
+}
+
+/* 正在解析中遮罩 - 未收到 init 前覆盖整个视图 */
+.pe-viewer-loading-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--vscode-editor-background);
+  opacity: 0.95;
+}
+
+.pe-viewer-loading-overlay.pe-viewer-loading-hidden {
+  display: none;
+}
+
+.pe-viewer-loading-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.pe-viewer-loading-spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid var(--vscode-panel-border);
+  border-top-color: var(--vscode-focusBorder, var(--vscode-foreground));
+  border-radius: 50%;
+  animation: pe-viewer-loading-spin 0.8s linear infinite;
+}
+
+@keyframes pe-viewer-loading-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.pe-viewer-loading-text {
+  margin: 0;
+  font-size: var(--vscode-font-size);
+  color: var(--vscode-editor-foreground);
 }
