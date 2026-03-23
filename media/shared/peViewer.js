@@ -293,6 +293,9 @@
   /** @type {string | null} */
   let selectedItem = null;
 
+  /** @type {boolean} */
+  let isCompareView = false;
+
   // 处理来自扩展的消息
   window.addEventListener("message", async (e) => {
     const { type, body, requestId } = e.data;
@@ -306,6 +309,7 @@
           currentLanguage = "en";
         }
         updateUILanguage();
+        initCompareButton();
         buildTree();
         // 数据已就绪并完成渲染，隐藏“正在解析中”遮罩
         const loadingOverlay = document.getElementById("peViewerLoadingOverlay");
@@ -326,12 +330,15 @@
         return;
       }
       case "getFileData": {
-        // 目前不支持编辑，因此返回原始数据
         vscode.postMessage({
           type: "response",
           requestId,
           body: Array.from(parsedData ? new Uint8Array(0) : new Uint8Array(0)),
         });
+        return;
+      }
+      case "compareResult": {
+        showCompareResult(body);
         return;
       }
     }
@@ -1875,6 +1882,357 @@
 
     fragment.appendChild(container);
     return fragment;
+  }
+
+  /**
+   * Initialize compare button
+   */
+  function initCompareButton() {
+    const compareButton = document.getElementById("compareButton");
+    const compareButtonText = document.getElementById("compareButtonText");
+
+    if (compareButtonText) {
+      compareButtonText.textContent = t("compareButton");
+    }
+
+    if (compareButton) {
+      compareButton.addEventListener("click", () => {
+        vscode.postMessage({ type: "requestCompare" });
+      });
+    }
+  }
+
+  /**
+   * Exit compare view and restore the normal viewer
+   */
+  function exitCompareView() {
+    isCompareView = false;
+    const editorContainer = document.querySelector(".pe-editor-container");
+    if (editorContainer) {
+      editorContainer.style.display = "flex";
+    }
+    if (selectedItem) {
+      selectItem(selectedItem);
+    }
+  }
+
+  /**
+   * Show compare result in the details panel
+   * @param {Object} result - The comparison result
+   */
+  function showCompareResult(result) {
+    if (!peDetails || !detailsTitle) {
+      return;
+    }
+
+    isCompareView = true;
+    hideSearchBox();
+
+    detailsTitle.textContent = t("compareTitle");
+    peDetails.innerHTML = "";
+
+    const container = document.createElement("div");
+    container.className = "compare-container";
+
+    // Back button
+    const backBtn = document.createElement("button");
+    backBtn.className = "compare-back-button";
+    backBtn.innerHTML = `← ${t("compareBackToViewer")}`;
+    backBtn.addEventListener("click", exitCompareView);
+    container.appendChild(backBtn);
+
+    // Summary: two file cards side by side
+    const summaryGrid = document.createElement("div");
+    summaryGrid.className = "compare-summary-grid";
+
+    summaryGrid.appendChild(
+      createFileCard(t("compareFile1"), result.file1Name, result.file1Path, result.file1Type, result.file1SymbolCount),
+    );
+    summaryGrid.appendChild(
+      createFileCard(t("compareFile2"), result.file2Name, result.file2Path, result.file2Type, result.file2SymbolCount),
+    );
+    container.appendChild(summaryGrid);
+
+    // Stats bar
+    const statsBar = document.createElement("div");
+    statsBar.className = "compare-stats-bar";
+
+    statsBar.appendChild(createStatItem(
+      "only-a",
+      t("compareOnlyInFile1"),
+      result.onlyInFile1.length,
+    ));
+    statsBar.appendChild(createStatItem(
+      "only-b",
+      t("compareOnlyInFile2"),
+      result.onlyInFile2.length,
+    ));
+    statsBar.appendChild(createStatItem(
+      "common",
+      t("compareCommon"),
+      result.common.length,
+    ));
+    container.appendChild(statsBar);
+
+    // No diff case
+    if (result.onlyInFile1.length === 0 && result.onlyInFile2.length === 0) {
+      const noDiff = document.createElement("div");
+      noDiff.className = "compare-no-diff";
+      noDiff.textContent = t("compareNoDiff");
+      container.appendChild(noDiff);
+      peDetails.appendChild(container);
+      return;
+    }
+
+    // Tabs
+    const tabs = document.createElement("div");
+    tabs.className = "compare-tabs";
+
+    const tabData = [
+      {
+        id: "tab-only-a",
+        label: `${t("compareOnlyInFile1")} (${result.onlyInFile1.length})`,
+        symbols: result.onlyInFile1,
+      },
+      {
+        id: "tab-only-b",
+        label: `${t("compareOnlyInFile2")} (${result.onlyInFile2.length})`,
+        symbols: result.onlyInFile2,
+      },
+      {
+        id: "tab-common",
+        label: `${t("compareCommon")} (${result.common.length})`,
+        symbols: result.common,
+      },
+    ];
+
+    const contentContainer = document.createElement("div");
+
+    tabData.forEach((td, index) => {
+      const tab = document.createElement("button");
+      tab.className = "compare-tab" + (index === 0 ? " active" : "");
+      tab.textContent = td.label;
+      tab.setAttribute("data-tab-id", td.id);
+      tab.addEventListener("click", () => {
+        tabs.querySelectorAll(".compare-tab").forEach((t) => t.classList.remove("active"));
+        tab.classList.add("active");
+        contentContainer.querySelectorAll(".compare-tab-content").forEach((c) => c.classList.remove("active"));
+        const target = contentContainer.querySelector(`#${td.id}`);
+        if (target) {
+          target.classList.add("active");
+        }
+      });
+      tabs.appendChild(tab);
+
+      const content = document.createElement("div");
+      content.id = td.id;
+      content.className = "compare-tab-content" + (index === 0 ? " active" : "");
+      content.appendChild(createCompareSymbolList(td.symbols));
+      contentContainer.appendChild(content);
+    });
+
+    container.appendChild(tabs);
+    container.appendChild(contentContainer);
+    peDetails.appendChild(container);
+  }
+
+  /**
+   * Create a file info card
+   * @param {string} label
+   * @param {string} fileName
+   * @param {string} filePath
+   * @param {string} fileType
+   * @param {number} symbolCount
+   * @returns {HTMLElement}
+   */
+  function createFileCard(label, fileName, filePath, fileType, symbolCount) {
+    const card = document.createElement("div");
+    card.className = "compare-file-card";
+
+    const title = document.createElement("h4");
+    title.textContent = label;
+    card.appendChild(title);
+
+    const info = document.createElement("div");
+    info.className = "compare-file-info";
+    info.innerHTML =
+      `<strong>${t("compareFileName")}:</strong> ${escapeCompareHtml(fileName)}<br>` +
+      `<strong>${t("compareFilePath")}:</strong> ${escapeCompareHtml(filePath)}<br>` +
+      `<strong>${t("compareFileType")}:</strong> ${escapeCompareHtml(fileType)}<br>` +
+      `<strong>${t("compareSymbolCount")}:</strong> ${symbolCount}`;
+    card.appendChild(info);
+
+    return card;
+  }
+
+  /**
+   * Create a stat item
+   * @param {string} cls
+   * @param {string} label
+   * @param {number} count
+   * @returns {HTMLElement}
+   */
+  function createStatItem(cls, label, count) {
+    const item = document.createElement("div");
+    item.className = `compare-stat-item ${cls}`;
+    item.innerHTML = `<span class="compare-stat-number">${count}</span> ${escapeCompareHtml(label)}`;
+    return item;
+  }
+
+  /**
+   * Create a symbol list with search and pagination
+   * @param {string[]} symbols
+   * @returns {HTMLElement}
+   */
+  function createCompareSymbolList(symbols) {
+    const wrapper = document.createElement("div");
+
+    if (symbols.length === 0) {
+      const empty = document.createElement("p");
+      empty.style.padding = "16px";
+      empty.style.color = "var(--vscode-descriptionForeground)";
+      empty.textContent = "—";
+      wrapper.appendChild(empty);
+      return wrapper;
+    }
+
+    // Search box
+    const searchDiv = document.createElement("div");
+    searchDiv.className = "compare-search-container";
+    const searchInput = document.createElement("input");
+    searchInput.type = "text";
+    searchInput.className = "compare-search-input";
+    searchInput.placeholder = t("compareSearchPlaceholder");
+    searchDiv.appendChild(searchInput);
+    wrapper.appendChild(searchDiv);
+
+    // Table
+    const tableDiv = document.createElement("div");
+    tableDiv.style.maxHeight = "calc(100vh - 480px)";
+    tableDiv.style.overflowY = "auto";
+
+    const pageSize = 200;
+    let filteredSymbols = symbols;
+    let currentPage = 1;
+
+    function render() {
+      tableDiv.innerHTML = "";
+
+      const totalPages = Math.ceil(filteredSymbols.length / pageSize);
+      const start = (currentPage - 1) * pageSize;
+      const end = Math.min(start + pageSize, filteredSymbols.length);
+      const pageSymbols = filteredSymbols.slice(start, end);
+
+      const table = document.createElement("table");
+      table.className = "pe-details-table";
+      table.style.width = "100%";
+      table.style.borderCollapse = "collapse";
+
+      const thead = document.createElement("thead");
+      const headRow = document.createElement("tr");
+      [t("compareIndex"), t("compareSymbolName")].forEach((h) => {
+        const th = document.createElement("th");
+        th.textContent = h;
+        th.style.padding = "8px 12px";
+        th.style.textAlign = "left";
+        th.style.border = "1px solid var(--vscode-panel-border)";
+        th.style.backgroundColor = "var(--vscode-editor-lineHighlightBackground)";
+        th.style.fontWeight = "bold";
+        headRow.appendChild(th);
+      });
+      thead.appendChild(headRow);
+      table.appendChild(thead);
+
+      const tbody = document.createElement("tbody");
+      pageSymbols.forEach((sym, idx) => {
+        const row = document.createElement("tr");
+        const tdIdx = document.createElement("td");
+        tdIdx.textContent = String(start + idx + 1);
+        tdIdx.style.padding = "6px 12px";
+        tdIdx.style.border = "1px solid var(--vscode-panel-border)";
+        tdIdx.style.width = "60px";
+        row.appendChild(tdIdx);
+
+        const tdName = document.createElement("td");
+        tdName.textContent = sym;
+        tdName.style.padding = "6px 12px";
+        tdName.style.border = "1px solid var(--vscode-panel-border)";
+        tdName.style.wordBreak = "break-all";
+        row.appendChild(tdName);
+
+        tbody.appendChild(row);
+      });
+      table.appendChild(tbody);
+      tableDiv.appendChild(table);
+
+      // Pagination
+      if (totalPages > 1) {
+        const pag = document.createElement("div");
+        pag.style.display = "flex";
+        pag.style.justifyContent = "space-between";
+        pag.style.alignItems = "center";
+        pag.style.padding = "8px 12px";
+        pag.style.fontSize = "12px";
+        pag.style.color = "var(--vscode-descriptionForeground)";
+
+        const info = document.createElement("span");
+        info.textContent = `${t("showing")} ${start + 1}-${end} ${t("of")} ${filteredSymbols.length}`;
+        pag.appendChild(info);
+
+        const btns = document.createElement("div");
+        btns.style.display = "flex";
+        btns.style.gap = "6px";
+
+        const prevBtn = createPageButton("‹", currentPage > 1, () => {
+          currentPage--;
+          render();
+        });
+        btns.appendChild(prevBtn);
+
+        const pageSpan = document.createElement("span");
+        pageSpan.style.padding = "0 8px";
+        pageSpan.textContent = `${currentPage} / ${totalPages}`;
+        btns.appendChild(pageSpan);
+
+        const nextBtn = createPageButton("›", currentPage < totalPages, () => {
+          currentPage++;
+          render();
+        });
+        btns.appendChild(nextBtn);
+
+        pag.appendChild(btns);
+        tableDiv.appendChild(pag);
+      }
+    }
+
+    /** @type {any} */
+    let compareSearchTimeout = null;
+    searchInput.addEventListener("input", () => {
+      if (compareSearchTimeout) clearTimeout(compareSearchTimeout);
+      compareSearchTimeout = setTimeout(() => {
+        const term = searchInput.value.trim().toLowerCase();
+        filteredSymbols = term
+          ? symbols.filter((s) => s.toLowerCase().includes(term))
+          : symbols;
+        currentPage = 1;
+        render();
+      }, 250);
+    });
+
+    render();
+    wrapper.appendChild(tableDiv);
+    return wrapper;
+  }
+
+  /**
+   * Escape HTML for compare view
+   * @param {string} str
+   * @returns {string}
+   */
+  function escapeCompareHtml(str) {
+    const div = document.createElement("div");
+    div.textContent = str;
+    return div.innerHTML;
   }
 
   // 发出 webview 已准备好的信号

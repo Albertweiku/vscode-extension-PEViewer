@@ -1,7 +1,8 @@
 import * as fs from "fs";
+import * as path from "path";
 import * as vscode from "vscode";
 
-import { BinaryDocument, DocumentDelegate } from "../common/binaryDocument";
+import { BinaryDocument, ParsedData } from "../common/binaryDocument";
 import { disposeAll } from "../common/dispose";
 import { getNonce } from "../common/util";
 
@@ -226,10 +227,133 @@ export class BinaryViewerProvider implements vscode.CustomEditorProvider<BinaryD
 
   private onMessage(document: BinaryDocument, message: any) {
     switch (message.type) {
-      case "response":
+      case "response": {
         const callback = this._callbacks.get(message.requestId);
         callback?.(message.body);
         return;
+      }
+      case "requestCompare": {
+        this.handleCompareRequest(document);
+        return;
+      }
+    }
+  }
+
+  /**
+   * Extract exported symbol names from parsed data regardless of file type
+   */
+  private static extractSymbols(parsedData: ParsedData): string[] {
+    const symbols: string[] = [];
+
+    if (parsedData.fileType === "PE") {
+      const exports = parsedData.exports;
+      if (exports?.functions) {
+        for (const func of exports.functions) {
+          if (func.name) {
+            symbols.push(func.name);
+          }
+        }
+      }
+    } else if (parsedData.fileType === "ELF") {
+      const elfData = parsedData.elfData;
+      if (elfData?.exports?.functions) {
+        for (const func of elfData.exports.functions) {
+          if (func.name) {
+            symbols.push(func.name);
+          }
+        }
+      }
+    } else if (parsedData.fileType === "LIB") {
+      const libData = parsedData.libData;
+      if (libData?.symbols) {
+        symbols.push(...Object.keys(libData.symbols));
+      }
+    }
+
+    return symbols;
+  }
+
+  /**
+   * Parse a file at the given URI and return its parsed data.
+   * Reuses BinaryFileDocument.create to get a fully parsed result.
+   */
+  private async parseFile(uri: vscode.Uri): Promise<ParsedData> {
+    const doc = await BinaryFileDocument.create(uri, undefined, {
+      getFileData: async () => new Uint8Array(),
+    });
+    const result = doc.parsedData;
+    doc.dispose();
+    return result;
+  }
+
+  private async handleCompareRequest(document: BinaryDocument) {
+    const currentUri = document.uri;
+    const currentFileName = path.basename(currentUri.fsPath);
+
+    const selectedFiles = await vscode.window.showOpenDialog({
+      canSelectMany: false,
+      openLabel: vscode.env.language.startsWith("zh")
+        ? `选择要对比的文件（当前: ${currentFileName}）`
+        : `Select file to compare (current: ${currentFileName})`,
+      filters: {
+        "Binary Files": [
+          "exe", "dll", "so", "o", "a", "lib", "ko", "elf", "axf", "out",
+        ],
+        "All Files": ["*"],
+      },
+    });
+
+    if (!selectedFiles || selectedFiles.length === 0) {
+      return;
+    }
+
+    const otherUri = selectedFiles[0];
+    const otherFileName = path.basename(otherUri.fsPath);
+
+    try {
+      await vscode.window.withProgress(
+        {
+          location: vscode.ProgressLocation.Notification,
+          title: vscode.env.language.startsWith("zh")
+            ? "正在解析对比文件…"
+            : "Parsing file for comparison…",
+          cancellable: false,
+        },
+        async () => {
+          const otherParsed = await this.parseFile(otherUri);
+          const currentSymbols = BinaryViewerProvider.extractSymbols(document.parsedData);
+          const otherSymbols = BinaryViewerProvider.extractSymbols(otherParsed);
+
+          const currentSet = new Set(currentSymbols);
+          const otherSet = new Set(otherSymbols);
+
+          const onlyInCurrent = currentSymbols.filter((s) => !otherSet.has(s));
+          const onlyInOther = otherSymbols.filter((s) => !currentSet.has(s));
+          const common = currentSymbols.filter((s) => otherSet.has(s));
+
+          const compareResult = {
+            file1Name: currentFileName,
+            file1Path: currentUri.fsPath,
+            file1Type: document.parsedData.fileType,
+            file1SymbolCount: currentSymbols.length,
+            file2Name: otherFileName,
+            file2Path: otherUri.fsPath,
+            file2Type: otherParsed.fileType,
+            file2SymbolCount: otherSymbols.length,
+            onlyInFile1: onlyInCurrent,
+            onlyInFile2: onlyInOther,
+            common,
+          };
+
+          this.postMessageToAll(document.uri, "compareResult", compareResult);
+        },
+      );
+    } catch (error) {
+      vscode.window.showErrorMessage(
+        vscode.env.language.startsWith("zh")
+          ? `对比文件解析失败: ${error}`
+          : `Failed to parse comparison file: ${error}`,
+      );
     }
   }
 

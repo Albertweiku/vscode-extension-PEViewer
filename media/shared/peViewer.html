@@ -149,18 +149,27 @@
           <span id="detailsTitle"
             ><span id="detailsTitleText">详细信息</span></span
           >
-          <div
-            class="pe-search-container"
-            id="searchContainer"
-            style="display: none"
-          >
-            <input
-              type="text"
-              class="pe-search-input"
-              id="searchInput"
-              placeholder="Search exports..."
-            />
-            <span class="pe-search-count" id="searchCount"></span>
+          <div class="pe-header-actions">
+            <button
+              class="pe-compare-button"
+              id="compareButton"
+              title="Compare exported symbols with another file"
+            >
+              ⇄ <span id="compareButtonText">对比导出符号</span>
+            </button>
+            <div
+              class="pe-search-container"
+              id="searchContainer"
+              style="display: none"
+            >
+              <input
+                type="text"
+                class="pe-search-input"
+                id="searchInput"
+                placeholder="Search exports..."
+              />
+              <span class="pe-search-count" id="searchCount"></span>
+            </div>
           </div>
         </div>
         <div class="pe-details" id="peDetails">

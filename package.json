@@ -160,6 +160,11 @@
       {
         "command": "peviewer.helloWorld",
         "title": "Hello World"
+      },
+      {
+        "command": "peviewer.compareSymbols",
+        "title": "Compare Exported Symbols",
+        "category": "PE/ELF Viewer"
       }
     ]
   },

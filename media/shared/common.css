@@ -130,7 +130,6 @@ body {
 .pe-details-header > span:first-child {
   flex: 1 1 auto;
   min-width: 0;
-  max-width: calc(100% - 270px);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -289,6 +288,199 @@ table.pe-details-table tbody tr.highlight-current td {
   color: var(--vscode-descriptionForeground);
   font-style: italic;
   margin-top: 5px;
+}
+
+/* Header actions container */
+.pe-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 0 0 auto;
+  flex-shrink: 0;
+}
+
+/* Compare button */
+.pe-compare-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 12px;
+  font-size: 12px;
+  border: 1px solid var(--vscode-button-border, var(--vscode-panel-border));
+  border-radius: 2px;
+  background-color: var(--vscode-button-secondaryBackground);
+  color: var(--vscode-button-secondaryForeground);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color 0.15s;
+}
+
+.pe-compare-button:hover {
+  background-color: var(--vscode-button-secondaryHoverBackground);
+}
+
+.pe-compare-button:active {
+  transform: translateY(1px);
+}
+
+/* Compare result styles */
+.compare-container {
+  padding: 0;
+}
+
+.compare-summary-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.compare-file-card {
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 4px;
+  padding: 12px 16px;
+  background-color: var(--vscode-editor-inactiveSelectionBackground, rgba(255,255,255,0.04));
+}
+
+.compare-file-card h4 {
+  margin: 0 0 8px 0;
+  font-size: 13px;
+  color: var(--vscode-foreground);
+}
+
+.compare-file-card .compare-file-info {
+  font-size: 12px;
+  line-height: 1.8;
+  color: var(--vscode-descriptionForeground);
+}
+
+.compare-file-card .compare-file-info strong {
+  color: var(--vscode-foreground);
+}
+
+.compare-stats-bar {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.compare-stat-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.compare-stat-item.only-a {
+  background-color: rgba(220, 50, 47, 0.12);
+  color: var(--vscode-editorError-foreground, #dc322f);
+  border: 1px solid rgba(220, 50, 47, 0.25);
+}
+
+.compare-stat-item.only-b {
+  background-color: rgba(38, 139, 210, 0.12);
+  color: var(--vscode-editorInfo-foreground, #268bd2);
+  border: 1px solid rgba(38, 139, 210, 0.25);
+}
+
+.compare-stat-item.common {
+  background-color: rgba(133, 153, 0, 0.12);
+  color: var(--vscode-terminal-ansiGreen, #859900);
+  border: 1px solid rgba(133, 153, 0, 0.25);
+}
+
+.compare-stat-number {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+/* Compare tabs */
+.compare-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--vscode-panel-border);
+  margin-bottom: 0;
+}
+
+.compare-tab {
+  padding: 8px 18px;
+  font-size: 12px;
+  cursor: pointer;
+  border: none;
+  background: none;
+  color: var(--vscode-foreground);
+  border-bottom: 2px solid transparent;
+  opacity: 0.7;
+  transition: opacity 0.15s, border-color 0.15s;
+}
+
+.compare-tab:hover {
+  opacity: 1;
+}
+
+.compare-tab.active {
+  opacity: 1;
+  border-bottom-color: var(--vscode-focusBorder, var(--vscode-foreground));
+  font-weight: 600;
+}
+
+.compare-tab-content {
+  display: none;
+  max-height: calc(100vh - 380px);
+  overflow-y: auto;
+}
+
+.compare-tab-content.active {
+  display: block;
+}
+
+.compare-no-diff {
+  text-align: center;
+  padding: 40px 20px;
+  font-size: 14px;
+  color: var(--vscode-terminal-ansiGreen, #859900);
+}
+
+.compare-back-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 12px;
+  font-size: 12px;
+  border: 1px solid var(--vscode-button-border, var(--vscode-panel-border));
+  border-radius: 2px;
+  background-color: var(--vscode-button-secondaryBackground);
+  color: var(--vscode-button-secondaryForeground);
+  cursor: pointer;
+  margin-bottom: 16px;
+}
+
+.compare-back-button:hover {
+  background-color: var(--vscode-button-secondaryHoverBackground);
+}
+
+/* Compare search box */
+.compare-search-container {
+  padding: 8px 0;
+}
+
+.compare-search-input {
+  width: 100%;
+  padding: 6px 10px;
+  font-size: 12px;
+  border: 1px solid var(--vscode-input-border);
+  background-color: var(--vscode-input-background);
+  color: var(--vscode-input-foreground);
+  border-radius: 2px;
+  box-sizing: border-box;
+}
+
+.compare-search-input:focus {
+  outline: 1px solid var(--vscode-focusBorder);
+  border-color: var(--vscode-focusBorder);
 }
 
 /* 正在解析中遮罩 - 未收到 init 前覆盖整个视图 */
