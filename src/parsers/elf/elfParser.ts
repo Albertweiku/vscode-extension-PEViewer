@@ -44,6 +44,99 @@ export interface ExtendedELFData {
   notes?: any[];
 }
 
+/** 将 BigInt 等转为可 JSON 序列化的值，供 Webview 使用 */
+function jsonSafeValue(v: unknown): unknown {
+  if (typeof v === "bigint") {
+    return v.toString();
+  }
+  return v;
+}
+
+/**
+ * 从 ELF 文件头字节解析最小头信息（elfy.header 缺失或非可枚举对象时的兜底）
+ */
+function parseMinimalElfHeaderFromBuffer(buffer: Buffer): Record<string, number> {
+  if (buffer.length < 20) {
+    return {};
+  }
+  if (
+    buffer[0] !== 0x7f ||
+    buffer[1] !== 0x45 ||
+    buffer[2] !== 0x4c ||
+    buffer[3] !== 0x46
+  ) {
+    return {};
+  }
+  const eiClass = buffer.readUInt8(4);
+  const eiData = buffer.readUInt8(5);
+  const eiVersion = buffer.readUInt8(6);
+  const eType = buffer.readUInt16LE(16);
+  const eMachine = buffer.readUInt16LE(18);
+  let entry = 0;
+  if (eiClass === 2 && buffer.length >= 32) {
+    entry = Number(buffer.readBigUInt64LE(24));
+  } else if (eiClass === 1 && buffer.length >= 28) {
+    entry = buffer.readUInt32LE(24);
+  }
+  return {
+    class: eiClass,
+    data: eiData,
+    version: eiVersion,
+    type: eType,
+    machine: eMachine,
+    entry,
+  };
+}
+
+/**
+ * 保证传给 Webview 的 header 为普通对象且含 class/machine 等字段（避免 JSON 后丢失）
+ */
+function ensurePlainElfHeader(
+  header: unknown,
+  fileData: Buffer,
+): Record<string, unknown> {
+  const pick = (h: any): Record<string, unknown> => {
+    if (!h || typeof h !== "object") {
+      return {};
+    }
+    const out: Record<string, unknown> = {};
+    const keys = [
+      "class",
+      "data",
+      "version",
+      "type",
+      "machine",
+      "entry",
+      "flags",
+      "ehsize",
+      "phoff",
+      "shoff",
+      "phentsize",
+      "phnum",
+      "shentsize",
+      "shnum",
+      "shstrndx",
+      "osabi",
+    ];
+    for (const k of keys) {
+      if (Object.prototype.hasOwnProperty.call(h, k)) {
+        out[k] = jsonSafeValue(h[k]);
+      }
+    }
+    return out;
+  };
+
+  let plain = pick(header as any);
+  const hasCore =
+    plain.class !== undefined ||
+    plain.machine !== undefined ||
+    plain.type !== undefined;
+  if (!hasCore) {
+    plain = { ...plain, ...parseMinimalElfHeaderFromBuffer(fileData) };
+  }
+  return plain;
+}
+
 /**
  * 解析ELF文件
  */
@@ -59,7 +152,7 @@ export async function parseELF(fileData: Buffer): Promise<ExtendedELFData> {
     });
 
     const extendedData: ExtendedELFData = {
-      header: elfData.header,
+      header: ensurePlainElfHeader(elfData.header, fileData),
       programHeaders: elfData.body?.programHeaders || [],
       sectionHeaders: elfData.body?.sections || [],
       symbols: [],

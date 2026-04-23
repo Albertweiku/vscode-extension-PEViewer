@@ -319,11 +319,30 @@ function showPEOverview(
   const container = document.createElement("div");
   container.className = "pe-details-section";
 
-  // 添加位数和架构突出显示
+  // 映像版本：可选头 MajorImageVersion.MinorImageVersion（非 VS 文件版本）
+  const oh = parsedData.nt_headers?.OptionalHeader;
+  let imageVersionStr = t("na");
+  if (oh) {
+    const major =
+      oh.MajorImageVersion !== undefined ? oh.MajorImageVersion : null;
+    const minor =
+      oh.MinorImageVersion !== undefined ? oh.MinorImageVersion : null;
+    if (major !== null || minor !== null) {
+      imageVersionStr = `${major ?? 0}.${minor ?? 0}`;
+    }
+  }
+
+  // 添加位数和架构突出显示，旁侧显示映像版本（避免与「文件版本」混淆）
   const archHeader = document.createElement("h4");
+  const imgVerTitleEsc = t("peOverviewImageVersionTitle")
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;")
+    .replace(/</g, "&lt;");
   archHeader.innerHTML = `${t("architectureInfo")}: <span style="color: ${
     is64Bit ? "#4CAF50" : "#2196F3"
-  }; font-weight: bold;">${machineDesc}</span>`;
+  }; font-weight: bold;">${machineDesc}</span> &nbsp;&nbsp; <span style="color: var(--vscode-descriptionForeground); font-weight: normal;">${t(
+    "peOverviewImageVersion",
+  )}:</span> <span style="font-weight: bold;" title="${imgVerTitleEsc}">${imageVersionStr}</span>`;
   container.appendChild(archHeader);
 
   // DOS头信息
@@ -473,19 +492,35 @@ function showPEOverview(
   // 导入函数统计
   if (parsedData.imports && parsedData.imports.length > 0) {
     let totalFunctions = 0;
+    const dash = "—";
     const importRows = parsedData.imports.map((dll) => {
       const funcCount = dll.functions ? dll.functions.length : 0;
       totalFunctions += funcCount;
-      return [dll.name, String(funcCount)];
+      let ver = dash;
+      if (dll.moduleVersionNoPeResource) {
+        ver = t("peImportFileVersionNoResource");
+      } else if (dll.moduleVersion && String(dll.moduleVersion).trim()) {
+        ver = String(dll.moduleVersion);
+      }
+      const modPath =
+        dll.modulePath && String(dll.modulePath).trim()
+          ? String(dll.modulePath)
+          : dash;
+      return [dll.name, ver, modPath, String(funcCount)];
     });
-    importRows.push([t("total"), String(totalFunctions)]);
+    importRows.push([t("total"), "", "", String(totalFunctions)]);
 
     container.appendChild(
       createTable(
         t("importDLLStats"),
-        [t("dllName"), t("functionCount")],
+        [
+          t("dllName"),
+          t("peImportFileVersion"),
+          t("modulePathColumn"),
+          t("functionCount"),
+        ],
         importRows,
-        ["", "pe-details-value"],
+        ["", "pe-details-value", "pe-details-value", "pe-details-value"],
       ),
     );
   }

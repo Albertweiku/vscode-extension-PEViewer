@@ -1008,54 +1008,191 @@
   };
 
   /**
-   * 解析版本信息资源
-   * @param {Array<number>|Uint8Array} data - 版本信息数据
+   * 将 postMessage 后的资源 data 转为 Uint8Array（Buffer JSON / 数字数组）
+   * @param {unknown} data
+   * @returns {Uint8Array | null}
+   */
+  const versionResourceToUint8Array = function (data) {
+    if (data == null) {
+      return null;
+    }
+    if (data instanceof Uint8Array) {
+      return data;
+    }
+    if (Array.isArray(data)) {
+      return new Uint8Array(data);
+    }
+    if (typeof data === "object" && Array.isArray(/** @type {any} */ (data).data)) {
+      return new Uint8Array(/** @type {any} */ (data).data);
+    }
+    return null;
+  };
+
+  /** @param {Uint8Array} arr */
+  const readU16LE = function (arr, off) {
+    return arr[off] | (arr[off + 1] << 8);
+  };
+
+  /** @param {Uint8Array} arr */
+  const readU32LE = function (arr, off) {
+    return (
+      arr[off] |
+      (arr[off + 1] << 8) |
+      (arr[off + 2] << 16) |
+      (arr[off + 3] << 24)
+    ) >>> 0;
+  };
+
+  const quadFromMsLs = function (ms, ls) {
+    const a = (ms >>> 16) & 0xffff;
+    const b = ms & 0xffff;
+    const c = (ls >>> 16) & 0xffff;
+    const d = ls & 0xffff;
+    return `${a}.${b}.${c}.${d}`;
+  };
+
+  /**
+   * 在版本资源 blob 中扫描 VS_FIXEDFILEINFO（dwSignature == 0xFEEF04BD）
+   * @param {Uint8Array} blob
+   */
+  const scanVsFixedFileInfoQuad = function (blob) {
+    const sig = 0xfeef04bd;
+    let lastQuad;
+    for (let i = 0; i <= blob.length - 52; i += 4) {
+      if (readU32LE(blob, i) !== sig) {
+        continue;
+      }
+      const ms = readU32LE(blob, i + 8);
+      const ls = readU32LE(blob, i + 12);
+      const q = quadFromMsLs(ms, ls);
+      if (q !== "0.0.0.0") {
+        return q;
+      }
+      lastQuad = q;
+    }
+    return lastQuad;
+  };
+
+  /**
+   * StringFileInfo 中 UTF-16 键（ASCII 名 + \\0）对应的值
+   * @param {Uint8Array} blob
+   * @param {string} asciiKey 如 FileVersion（不含尾 \\0）
+   */
+  const parseStringFileInfoUtf16Value = function (blob, asciiKey) {
+    const needle = new Uint8Array((asciiKey.length + 1) * 2);
+    for (let j = 0; j < asciiKey.length; j++) {
+      needle[j * 2] = asciiKey.charCodeAt(j) & 0xff;
+      needle[j * 2 + 1] = asciiKey.charCodeAt(j) >> 8;
+    }
+    needle[asciiKey.length * 2] = 0;
+    needle[asciiKey.length * 2 + 1] = 0;
+
+    let searchFrom = 0;
+    while (searchFrom < blob.length) {
+      let idx = -1;
+      outer: for (let i = searchFrom; i <= blob.length - needle.length; i++) {
+        for (let j = 0; j < needle.length; j++) {
+          if (blob[i + j] !== needle[j]) {
+            continue outer;
+          }
+        }
+        idx = i;
+        break;
+      }
+      if (idx < 0) {
+        break;
+      }
+      if (idx < 6) {
+        searchFrom = idx + 2;
+        continue;
+      }
+      const structStart = idx - 6;
+      const wLength = readU16LE(blob, structStart);
+      const wValueLength = readU16LE(blob, structStart + 2);
+      if (wLength < 6 || structStart + wLength > blob.length) {
+        searchFrom = idx + 2;
+        continue;
+      }
+
+      let off = structStart + 6;
+      while (off + 1 < blob.length) {
+        if (readU16LE(blob, off) === 0) {
+          break;
+        }
+        off += 2;
+      }
+      off += 2;
+      while (off % 4 !== 0) {
+        off++;
+      }
+
+      if (wValueLength <= 0 || off + wValueLength * 2 > blob.length) {
+        searchFrom = idx + 2;
+        continue;
+      }
+      let s = "";
+      try {
+        s = new TextDecoder("utf-16le").decode(
+          blob.subarray(off, off + wValueLength * 2),
+        );
+      } catch {
+        s = "";
+      }
+      const trimmed = s.replace(/\u0000+$/g, "").trim();
+      if (trimmed) {
+        return trimmed;
+      }
+      searchFrom = idx + 2;
+    }
+    return undefined;
+  };
+
+  /**
+   * 解析版本信息资源（VS_VERSIONINFO：键后 VS_FIXEDFILEINFO + StringFileInfo）
+   * @param {Array<number>|Uint8Array|{data?: number[]}} data - 版本信息数据
    * @return {Object | null}
    */
   const parseVersionInfo = function (data) {
     try {
-      const dataArray = Array.isArray(data) ? new Uint8Array(data) : data;
+      const blob = versionResourceToUint8Array(data);
+      if (!blob || blob.length < 40) {
+        return null;
+      }
+
       const versionInfo = {};
+      const fileVerStr = parseStringFileInfoUtf16Value(blob, "FileVersion");
+      const prodVerStr = parseStringFileInfoUtf16Value(blob, "ProductVersion");
+      const quad = scanVsFixedFileInfoQuad(blob);
 
-      // 简化的版本信息解析
-      // 实际的VS_VERSIONINFO结构比较复杂，这里只做基本解析
-      if (dataArray.length > 40) {
-        const fixedFileInfo = {
-          dwSignature:
-            dataArray[6] |
-            (dataArray[7] << 8) |
-            (dataArray[8] << 16) |
-            (dataArray[9] << 24),
-          dwStrucVersion:
-            dataArray[10] |
-            (dataArray[11] << 8) |
-            (dataArray[12] << 16) |
-            (dataArray[13] << 24),
-          dwFileVersionMS:
-            dataArray[14] |
-            (dataArray[15] << 8) |
-            (dataArray[16] << 16) |
-            (dataArray[17] << 24),
-          dwFileVersionLS:
-            dataArray[18] |
-            (dataArray[19] << 8) |
-            (dataArray[20] << 16) |
-            (dataArray[21] << 24),
-        };
+      if (fileVerStr) {
+        versionInfo["File Version"] = fileVerStr;
+      } else if (quad) {
+        versionInfo["File Version"] = quad;
+      }
 
-        if (fixedFileInfo.dwSignature === 0xfeef04bd) {
-          const majorVer = (fixedFileInfo.dwFileVersionMS >> 16) & 0xffff;
-          const minorVer = fixedFileInfo.dwFileVersionMS & 0xffff;
-          const buildVer = (fixedFileInfo.dwFileVersionLS >> 16) & 0xffff;
-          const revisionVer = fixedFileInfo.dwFileVersionLS & 0xffff;
+      if (prodVerStr) {
+        versionInfo["Product Version"] = prodVerStr;
+      }
 
-          versionInfo["File Version"] =
-            `${majorVer}.${minorVer}.${buildVer}.${revisionVer}`;
-          return versionInfo;
+      const extras = [
+        ["FileDescription", "File Description"],
+        ["ProductName", "Product Name"],
+        ["InternalName", "Internal Name"],
+        ["OriginalFilename", "Original Filename"],
+        ["LegalCopyright", "Legal Copyright"],
+        ["Comments", "Comments"],
+        ["PrivateBuild", "Private Build"],
+      ];
+      for (let e = 0; e < extras.length; e++) {
+        const key = extras[e][0];
+        const label = extras[e][1];
+        const val = parseStringFileInfoUtf16Value(blob, key);
+        if (val) {
+          versionInfo[label] = val;
         }
       }
 
-      return null;
+      return Object.keys(versionInfo).length ? versionInfo : null;
     } catch (error) {
       console.error("Error parsing version info:", error);
       return null;

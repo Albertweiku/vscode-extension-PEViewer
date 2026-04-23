@@ -2,6 +2,14 @@
  * ELF 文件格式专用样式
  */
 
+/* ELF 文件概览：架构 + 模块版本摘要行 */
+.elf-overview-arch-line {
+  border-bottom: 1px solid var(--vscode-panel-border);
+  padding-bottom: 10px;
+  margin-bottom: 14px;
+  margin-top: 0;
+}
+
 /* ELF 特定样式 */
 .elf-section-header {
   font-weight: bold;

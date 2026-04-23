@@ -1,4 +1,4 @@
-// 语言包定义
+﻿// 语言包定义
 const locales = {
   "zh-cn": {
     // HTML文本
@@ -17,6 +17,12 @@ const locales = {
     selectItemMessage: "请从左侧选择要查看的项目。",
     peOverview: "PE 文件总览",
     architectureInfo: "架构信息",
+    moduleVersion: "模块版本",
+    moduleVersionUnavailable: "无 DT_SONAME（非软件发行版本号）",
+    peOverviewImageVersion: "映像版本（可选头）",
+    peOverviewImageVersionTitle:
+      "MajorImageVersion.MinorImageVersion；常为 0.0，与资源里的文件版本不同。",
+    peImportFileVersionNoResource: "—（PE 无版本资源目录）",
     bitPEFile: "位 PE 文件",
     dosHeaderInfo: "DOS 头信息",
     field: "字段",
@@ -226,6 +232,8 @@ const locales = {
     importFunctionsCount: "共 {totalFunctions} 个函数，{dllCount} 个DLL",
     allImportFunctions: "所有导入函数",
     dllColumn: "DLL",
+    modulePathColumn: "模块路径",
+    peImportFileVersion: "文件版本",
     functionNameColumn: "函数名称",
     typeColumn: "类型",
     importedFunctionsTitle: "{dllName} - 导入函数",
@@ -402,6 +410,7 @@ const locales = {
     bigEndian: "Big Endian",
     version: "版本",
     elfVersion: "ELF 版本",
+    elfIdentVersionHint: "EI_VERSION（ELF 规范标识，常见为 1，不是程序/库发行版本）",
     fileType: "文件类型",
     elfFileType: "ELF 文件类型",
     machineType: "机器类型",
@@ -512,6 +521,12 @@ const locales = {
     selectItemMessage: "Please select an item to view from the left.",
     peOverview: "PE File Overview",
     architectureInfo: "Architecture Info",
+    moduleVersion: "Module Version",
+    moduleVersionUnavailable: "— (no DT_SONAME — not a release version)",
+    peOverviewImageVersion: "Image version (optional header)",
+    peOverviewImageVersionTitle:
+      "MajorImageVersion / MinorImageVersion; often 0.0; not the File version from VS_VERSIONINFO.",
+    peImportFileVersionNoResource: "— (no PE version resource directory)",
     bitPEFile: "-bit PE File",
     dosHeaderInfo: "DOS Header Info",
     field: "Field",
@@ -719,6 +734,8 @@ const locales = {
     importFunctionsCount: "Total {totalFunctions} functions, {dllCount} DLLs",
     allImportFunctions: "All Import Functions",
     dllColumn: "DLL",
+    modulePathColumn: "Module Path",
+    peImportFileVersion: "File Version",
     functionNameColumn: "Function Name",
     typeColumn: "Type",
     importedFunctionsTitle: "{dllName} - Import Functions",
@@ -896,6 +913,8 @@ const locales = {
     bigEndian: "Big Endian",
     version: "Version",
     elfVersion: "ELF Version",
+    elfIdentVersionHint:
+      "EI_VERSION (ELF spec identifier, usually 1 — not release version)",
     fileType: "File Type",
     elfFileType: "ELF File Type",
     machineType: "Machine Type",

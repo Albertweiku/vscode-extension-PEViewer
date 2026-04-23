@@ -280,6 +280,11 @@ function showLibOverview(libData) {
 
   let html = "";
 
+  // 架构信息与模块版本（静态库无统一映像版本，占位为 N/A）
+  html += `<h4 class="lib-overview-arch-line">${t("architectureInfo")}: <span style="color: #2196F3; font-weight: bold;">COFF Archive</span> &nbsp;&nbsp; <span style="color: var(--vscode-descriptionForeground); font-weight: normal;">${t(
+    "moduleVersion",
+  )}:</span> <span style="font-weight: bold;">${t("na")}</span></h4>`;
+
   // 基本信息
   const basicInfoRows = [
     [t("libMemberCount"), totalMembers.toString()],

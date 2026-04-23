@@ -1,4 +1,4 @@
-// @ts-check
+﻿// @ts-check
 
 // 此脚本在 webview 本身中运行
 (function () {
@@ -181,6 +181,9 @@
    * @typedef {Object} ImportDLL
    * @property {string} name
    * @property {ImportFunction[]} functions
+   * @property {string} [modulePath]
+   * @property {string} [moduleVersion]
+   * @property {boolean} [moduleVersionNoPeResource]
    */
 
   /**
@@ -352,6 +355,8 @@
     // 检查是否为 ELF 文件
     if (parsedData.fileType === "ELF") {
       buildELFTree(parsedData, selectItem);
+      // 默认打开 ELF 概览（否则详情区不会调用 showELFOverview，架构/版本不显示）
+      selectItem("elf_header");
       return;
     }
 

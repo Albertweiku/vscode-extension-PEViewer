@@ -18,6 +18,7 @@ import {
 } from "../common/fileTypeDetector";
 import { ExtendedELFData, parseELF } from "../parsers/elf/elfParser";
 import { LibArchiveData, parseLibArchive } from "../parsers/lib/libParser";
+import { enrichPeImportsModuleMetadata } from "../parsers/pe/peImportModuleMetadata";
 
 // PE 文件相关类型定义
 interface ImportFunction {
@@ -28,6 +29,12 @@ interface ImportFunction {
 interface ImportDLL {
   name: string;
   functions: ImportFunction[];
+  /** 解析到的 DLL 磁盘路径（与主程序同目录或 System32 等） */
+  modulePath?: string;
+  /** VS_FIXEDFILEINFO 文件版本，如 10.0.22621.1 */
+  moduleVersion?: string;
+  /** 磁盘 DLL 无 PE 资源目录，无法提供文件版本 */
+  moduleVersionNoPeResource?: boolean;
 }
 
 interface ExportFunction {
@@ -186,6 +193,20 @@ class GenericBinaryDocument extends BinaryDocument {
         buffer,
         basicData,
       );
+      if (
+        uri.scheme === "file" &&
+        extendedData.imports &&
+        extendedData.imports.length > 0
+      ) {
+        try {
+          await enrichPeImportsModuleMetadata(
+            extendedData.imports,
+            uri.fsPath,
+          );
+        } catch (e) {
+          console.warn("enrichPeImportsModuleMetadata:", e);
+        }
+      }
       console.log("PE parsing successful");
       return extendedData;
     } catch (error) {

@@ -4,6 +4,53 @@
  */
 
 /**
+ * 从 .dynamic 节解析 DT_SONAME（共享库名，常含版本后缀）
+ * @param {any} elfData
+ * @returns {string}
+ */
+function getElfDynamicSoname(elfData) {
+  const dyn = elfData && elfData.dynamic;
+  if (!dyn || !Array.isArray(dyn)) {
+    return "";
+  }
+  for (const entry of dyn) {
+    const tag = entry.tag !== undefined ? entry.tag : entry.d_tag;
+    const val = entry.val !== undefined ? entry.val : entry.d_val;
+    if (tag === "DT_SONAME" || tag === 14) {
+      if (typeof val === "string" && val.trim()) {
+        return val.trim();
+      }
+    }
+  }
+  return "";
+}
+
+/** @param {string} text */
+function elfOverviewEscapeHtml(text) {
+  const div = document.createElement("div");
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+/** 扩展宿主 JSON 序列化后 class/machine 等可能为 string，统一成 number */
+function elfHeaderNum(v) {
+  if (v === undefined || v === null) {
+    return undefined;
+  }
+  if (typeof v === "bigint") {
+    return Number(v);
+  }
+  if (typeof v === "string") {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : undefined;
+  }
+  if (typeof v === "number" && Number.isFinite(v)) {
+    return v;
+  }
+  return undefined;
+}
+
+/**
  * 构建 ELF 文件树结构
  * @param {any} parsedData - 解析后的数据
  * @param {Function} selectItem - 选择项的回调函数
@@ -218,84 +265,125 @@ function showELFOverview(
   const elfData = parsedData.elfData;
   console.log("elfData header:", elfData.header);
 
-  // ELF 头信息
-  if (elfData.header) {
-    const header = elfData.header;
+  // 头信息可能为 null/丢失（JSON 等），仍要显示架构区域；用空对象兜底
+  const header =
+    elfData.header != null && typeof elfData.header === "object"
+      ? elfData.header
+      : {};
+
+  // ELF 头信息 + 架构摘要（始终渲染，不依赖 header 是否为真值）
+  {
     const rows = [];
+
+    const eiClass = elfHeaderNum(header.class);
+    const eiData = elfHeaderNum(header.data);
+    const eMachine = elfHeaderNum(header.machine);
+    const eType = elfHeaderNum(header.type);
+    const eVersion = elfHeaderNum(header.version);
 
     // 架构信息
     let archInfo = "Unknown";
-    if (header.class === 1) {
+    if (eiClass === 1) {
       archInfo = "32-bit";
-    } else if (header.class === 2) {
+    } else if (eiClass === 2) {
       archInfo = "64-bit";
     }
 
     let endianInfo = "Unknown";
-    if (header.data === 1) {
+    if (eiData === 1) {
       endianInfo = t("littleEndian");
-    } else if (header.data === 2) {
+    } else if (eiData === 2) {
       endianInfo = t("bigEndian");
     }
+
+    let machineDesc = "Unknown";
+    if (eMachine !== undefined) {
+      if (eMachine === 3) {
+        machineDesc = "Intel 80386";
+      } else if (eMachine === 8) {
+        machineDesc = "MIPS";
+      } else if (eMachine === 20) {
+        machineDesc = "PowerPC";
+      } else if (eMachine === 40) {
+        machineDesc = "ARM";
+      } else if (eMachine === 62) {
+        machineDesc = "AMD x86-64";
+      } else if (eMachine === 183) {
+        machineDesc = "ARM 64-bit (AArch64)";
+      } else if (eMachine === 243) {
+        machineDesc = "RISC-V";
+      } else {
+        machineDesc = `Machine (${eMachine})`;
+      }
+    }
+
+    // 模块版本：以动态节 DT_SONAME 为准（如 libfoo.so.1）；非 ELF 头里的 EI_VERSION（那只是规范号，常为 1）
+    const soname = getElfDynamicSoname(elfData);
+    const moduleVersionStr = soname
+      ? soname
+      : t("moduleVersionUnavailable");
+    const archColor = eiClass === 2 ? "#4CAF50" : "#2196F3";
+    const archHeader = document.createElement("h4");
+    archHeader.className = "elf-overview-arch-line";
+    const archSummary = `${archInfo} · ${endianInfo}${
+      eMachine !== undefined ? ` · ${machineDesc}` : ""
+    }`;
+    archHeader.innerHTML = `${t("architectureInfo")}: <span style="color: ${archColor}; font-weight: bold;">${archSummary}</span> &nbsp;&nbsp; <span style="color: var(--vscode-descriptionForeground); font-weight: normal;">${t(
+      "moduleVersion",
+    )}:</span> <span style="font-weight: bold;">${elfOverviewEscapeHtml(
+      moduleVersionStr,
+    )}</span>`;
+    container.appendChild(archHeader);
 
     rows.push([t("architecture"), archInfo, "", t("processorBits")]);
     rows.push([t("byteOrder"), endianInfo, "", t("dataEncoding")]);
     rows.push([
       t("version"),
-      String(header.version || "N/A"),
+      String(eVersion !== undefined ? eVersion : "N/A"),
       "",
-      t("elfVersion"),
+      t("elfIdentVersionHint"),
     ]);
 
-    if (header.type !== undefined) {
+    if (eType !== undefined) {
       let typeStr = "Unknown";
-      if (header.type === 1) {
+      if (eType === 1) {
         typeStr = "REL (" + t("relocatable") + ")";
-      } else if (header.type === 2) {
+      } else if (eType === 2) {
         typeStr = "EXEC (" + t("executable") + ")";
-      } else if (header.type === 3) {
+      } else if (eType === 3) {
         typeStr = "DYN (" + t("sharedObject") + ")";
-      } else if (header.type === 4) {
+      } else if (eType === 4) {
         typeStr = "CORE (" + t("coreFile") + ")";
       }
       rows.push([
         t("fileType"),
         typeStr,
-        `0x${header.type.toString(16)}`,
+        `0x${eType.toString(16)}`,
         t("elfFileType"),
       ]);
     }
 
-    if (header.machine !== undefined) {
-      let machineStr = "Unknown";
-      if (header.machine === 3) {
-        machineStr = "Intel 80386";
-      } else if (header.machine === 8) {
-        machineStr = "MIPS";
-      } else if (header.machine === 20) {
-        machineStr = "PowerPC";
-      } else if (header.machine === 40) {
-        machineStr = "ARM";
-      } else if (header.machine === 62) {
-        machineStr = "AMD x86-64";
-      } else if (header.machine === 183) {
-        machineStr = "ARM 64-bit (AArch64)";
-      } else if (header.machine === 243) {
-        machineStr = "RISC-V";
-      }
+    if (eMachine !== undefined) {
       rows.push([
         t("machineType"),
-        machineStr,
-        `0x${header.machine.toString(16)}`,
+        machineDesc,
+        `0x${eMachine.toString(16)}`,
         t("targetArch"),
       ]);
     }
 
-    if (header.entry !== undefined) {
+    if (header.entry !== undefined && header.entry !== null) {
+      const entryNum = elfHeaderNum(header.entry);
+      const entryStr =
+        entryNum !== undefined ? String(entryNum) : String(header.entry);
+      const entryHex =
+        entryNum !== undefined
+          ? `0x${entryNum.toString(16)}`
+          : String(header.entry);
       rows.push([
         t("entryPoint"),
-        String(header.entry),
-        `0x${header.entry.toString(16)}`,
+        entryStr,
+        entryHex,
         t("entryPointAddress"),
       ]);
     }
