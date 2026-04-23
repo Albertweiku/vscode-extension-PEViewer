@@ -23,11 +23,20 @@
 ```
 src/test/
 ├── helpers/
-│   └── binaryBuilder.ts      # 构造 PE/ELF/LIB 测试缓冲区的工具函数
+│   ├── __mocks__/
+│   │   └── vscode.ts          # VSCode API 桩模块
+│   ├── binaryBuilder.ts       # 构造 PE/ELF/LIB 测试缓冲区的工具函数
+│   └── scriptLoader.ts        # vm 沙箱加载 media/ JS 脚本
 ├── unit/
 │   ├── common/
 │   │   ├── fileTypeDetector.test.ts
 │   │   └── util.test.ts
+│   ├── media/                 # webview 前端纯函数测试
+│   │   ├── machineTypes.test.ts
+│   │   ├── demangle.test.ts
+│   │   ├── locales.test.ts
+│   │   ├── elfHandler.test.ts
+│   │   └── libHandler.test.ts
 │   ├── parsers/
 │   │   ├── elf/
 │   │   │   ├── elfParser.test.ts
@@ -54,7 +63,19 @@ src/test/
 | `parsers/elf/elfParserEnhanced` | `parseELFDynamicSection`, `parseELFSymbolsDirect` | 构造最小 ELF64/ELF32 Buffer（header + section headers + .dynamic + .dynsym + .dynstr）；测试大小端、符号类型/绑定映射 |
 | `parsers/elf/elfParser` | `isELFFile`, `getELFTypeDescription`, `getELFMachineDescription` | 纯映射函数直接测试；`parseELF` 依赖 `elfy` 库，通过 mock 测试编排逻辑 |
 
-### 4.2 需要 Mock 的模块
+### 4.2 Webview 前端纯函数（Vitest + vm 沙箱）
+
+通过 `scriptLoader.ts` 在 Node `vm` 沙箱中加载 `media/` 下的全局作用域脚本，直接测试纯函数。
+
+| 模块 | 关键函数 | 测试策略 |
+|------|---------|---------|
+| `media/shared/machineTypes.js` | `getMachineTypeDescription`, `getMachineTypeFullInfo` | 所有已知机器类型映射、未知类型格式化 |
+| `media/shared/demangle.js` | `demangleFunctionName`, `demangleMsvc`, `demangleItanium`, `demangleRust` | MSVC 构造/析构/操作符解码、Itanium 长度前缀解析、Rust 哈希移除、路由分发逻辑 |
+| `media/shared/locales.js` | `t(key, params)` | 中英文切换、参数占位符替换、fallback 到 key、语言包键一致性检查 |
+| `media/elf/elfHandler.js` | `getElfDynamicSoname`, `elfHeaderNum`, `getSectionTypeDescription`, `getSectionFlagsDescription` | DT_SONAME 提取、数值类型归一化、节区类型/标志位映射与组合 |
+| `media/lib/libHandler.js` | `formatSize`, `createLibTable`, `createLibListTable` | 字节格式化(B/KB/MB/GB)、HTML 表格生成、maxDisplay 截断、搜索 UI |
+
+### 4.3 需要 Mock 的模块
 
 | 模块 | Mock 对象 | 说明 |
 |------|----------|------|
@@ -62,7 +83,7 @@ src/test/
 | `parsers/elf/elfParser` (parseELF) | `elfy` 包 | 控制 `elfy.parse` 返回值以测试后处理逻辑 |
 | `viewer/documentFactory` | `vscode`, `pe-parser`, 所有 parsers | 集成测试范畴 |
 
-### 4.3 集成测试模块（预留）
+### 4.4 集成测试模块（预留）
 
 | 模块 | 测试要点 |
 |------|---------|
@@ -72,7 +93,7 @@ src/test/
 
 ## 5. 测试辅助工具设计
 
-### `binaryBuilder.ts`
+### `binaryBuilder.ts`（后端解析器测试数据）
 
 提供程序化构造二进制格式测试数据的 Builder 函数，避免依赖外部二进制文件：
 
@@ -94,6 +115,24 @@ buildVersionBlob(version: string): Buffer
 - 每个 Builder 产出的 Buffer 满足目标解析器的最低结构要求
 - 参数化设计，方便 AI 在修改解析逻辑后快速调整测试数据
 - 所有数值按目标格式的字节序写入
+
+### `scriptLoader.ts`（前端 webview 脚本加载器）
+
+在 Node `vm` 沙箱中执行 `media/` 下的全局作用域 JS 脚本，使纯函数可被 vitest 直接调用：
+
+```typescript
+// 加载单个脚本
+loadScript("shared/machineTypes.js")
+// → 返回包含 getMachineTypeDescription 等函数的上下文对象
+
+// 加载多个脚本到同一沙箱（处理依赖关系）
+loadScripts(["shared/locales.js", "elf/elfHandler.js"], { document: {...} })
+```
+
+**设计原则：**
+- 零源码修改 — 自动将顶层 `const`/`let` 提升为 `var` 以暴露到 vm 上下文
+- 支持注入 DOM 桩对象，避免浏览器 API 依赖
+- 多脚本加载模拟浏览器 `<script>` 加载顺序
 
 ## 6. 覆盖率目标
 
